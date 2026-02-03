@@ -1,9 +1,13 @@
 export interface Config {
-  gitlabPAT: string;
-  gitlabURL: string;
+  gitlabPAT?: string;
+  gitlabURL?: string;
+  jiraPAT?: string;
+  jiraURL?: string;
+  jiraUsername?: string;
   outFile: string;
   timeRange: string;
   fetchMode: string;
+  provider: "gitlab" | "jira" | "all";
   startDate?: string;
   endDate?: string;
   //   projectIDs: string[];
