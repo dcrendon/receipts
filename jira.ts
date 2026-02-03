@@ -51,6 +51,72 @@ const getPaginatedResults = async (
   return allIssues;
 };
 
+const getIssueComments = async (
+  jiraURL: string,
+  headers: Record<string, string>,
+  issueKey: string,
+): Promise<any[]> => {
+  const baseURL = jiraURL.endsWith("/") ? jiraURL : `${jiraURL}/`;
+
+  const commentsURL = new URL(
+    `rest/api/2/issue/${issueKey}/comment`,
+    baseURL,
+  );
+
+  commentsURL.searchParams.set("maxResults", "100");
+
+  try {
+    const response = await fetch(commentsURL.toString(), {
+      headers,
+
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      console.error(
+        `Failed to fetch comments for ${issueKey}: ${response.statusText}`,
+      );
+
+      return [];
+    }
+
+    const data = await response.json();
+
+    return data.comments || [];
+  } catch (error) {
+    console.error(`Error fetching comments for ${issueKey}: ${error}`);
+
+    return [];
+  }
+};
+
+// Simple sanitizer for JQL string values
+const escapeJQL = (str: string) => {
+  return str.replace(/"/g, '\\"');
+};
+
+const removeNulls = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj
+      .map((v) => removeNulls(v))
+      .filter((v) => v !== null && v !== undefined);
+  } else if (typeof obj === "object" && obj !== null) {
+    const newObj: any = {};
+
+    for (const key in obj) {
+      const val = removeNulls(obj[key]);
+
+      if (val !== null && val !== undefined) {
+        newObj[key] = val;
+      }
+    }
+
+    return newObj;
+  }
+
+  return obj;
+};
+
 export const jiraIssues = async (
   jiraURL: string,
   headers: Record<string, string>,
@@ -60,28 +126,82 @@ export const jiraIssues = async (
   fetchMode: string,
 ) => {
   const formatDate = (d: string) => d.split("T")[0];
+
   const jqlStart = formatDate(startDate);
+
   const jqlEnd = formatDate(endDate);
 
+  const safeUser = escapeJQL(username);
+
   let jql = "";
+
   if (fetchMode === "my_issues") {
-    jql = `(assignee = "${username}" OR reporter = "${username}") AND created >= "${jqlStart}" AND created <= "${jqlEnd}"`;
+    jql =
+      `(assignee = "${safeUser}" OR reporter = "${safeUser}") AND created >= "${jqlStart}" AND created <= "${jqlEnd}"`;
   } else if (fetchMode === "all_contributions") {
-    jql = `(assignee = "${username}" OR reporter = "${username}" OR watcher = "${username}") AND updated >= "${jqlStart}" AND updated <= "${jqlEnd}"`;
+    jql =
+      `(assignee = "${safeUser}" OR reporter = "${safeUser}" OR watcher = "${safeUser}") AND updated >= "${jqlStart}" AND updated <= "${jqlEnd}"`;
   } else {
     promptExit(`Invalid fetch mode: ${fetchMode}`, 1);
   }
 
   console.log(`\nFetching Jira issues...`);
+
   console.log(`JQL: ${jql}`);
 
   const issues = await getPaginatedResults(jiraURL, headers, jql);
 
-  console.log(`Fetched ${issues.length} issues.`);
+  console.log(`Initial fetch: ${issues.length} issues.`);
 
   if (issues.length === 0) {
     promptExit("\nNo issues found to process. Exiting.", 0);
   }
 
-  return issues;
+  console.log(`\nFetching comments and filtering...`);
+
+  const finalIssues: any[] = [];
+
+  for (const issue of issues) {
+    const comments = await getIssueComments(jiraURL, headers, issue.key);
+
+    // Attach comments to the issue object, normalizing to 'notes' to match GitLab output structure
+
+    issue.notes = comments;
+
+    if (fetchMode === "my_issues") {
+      finalIssues.push(issue);
+    } else if (fetchMode === "all_contributions") {
+      let isContributor = false;
+
+      // Check Assignee
+
+      if (issue.fields.assignee && issue.fields.assignee.name === username) {
+        isContributor = true;
+      } // Check Reporter
+
+      else if (
+        issue.fields.reporter && issue.fields.reporter.name === username
+      ) {
+        isContributor = true;
+      } // Check Comments
+
+      else {
+        for (const comment of comments) {
+          if (comment.author && comment.author.name === username) {
+            isContributor = true;
+
+            break;
+          }
+        }
+      }
+
+      if (isContributor) {
+        finalIssues.push(issue);
+      }
+    }
+  }
+
+  console.log(`Total issues after processing: ${finalIssues.length}`);
+
+  return removeNulls(finalIssues);
 };
