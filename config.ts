@@ -22,7 +22,11 @@ const checkENV = async (): Promise<Partial<Config>> => {
   const fetchMode = Deno.env.get("FETCH_MODE");
   const startDate = Deno.env.get("START_DATE");
   const endDate = Deno.env.get("END_DATE");
-  const provider = Deno.env.get("PROVIDER") as "gitlab" | "jira" | "all" | undefined;
+  const provider = Deno.env.get("PROVIDER") as
+    | "gitlab"
+    | "jira"
+    | "all"
+    | undefined;
   // const projectIDs = Deno.env.get("PROJECT_IDS")?.split(",");
   const envParams: Partial<Config> = {
     gitlabPAT,

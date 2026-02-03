@@ -30,3 +30,28 @@ export interface GitlabIssue {
   notes?: any[];
   [key: string]: any;
 }
+
+export interface JiraIssue {
+  id: string;
+  key: string;
+  fields: {
+    summary: string;
+    description: string;
+    created: string;
+    updated: string;
+    assignee?: {
+      accountId: string;
+      displayName: string;
+    };
+    reporter?: {
+      accountId: string;
+      displayName: string;
+    };
+    status: {
+      name: string;
+    };
+    [key: string]: unknown;
+  };
+  notes?: any[];
+  [key: string]: unknown;
+}

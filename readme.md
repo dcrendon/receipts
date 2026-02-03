@@ -1,8 +1,8 @@
 # GitLab & Jira Issue Fetcher
 
-A Deno CLI tool to fetch and export GitLab and Jira issues you've worked on. It scans
-issues and generates a JSON report of issues where you are the author, assignee,
-or a participant.
+A Deno CLI tool to fetch and export GitLab and Jira issues you've worked on. It
+scans issues and generates a JSON report of issues where you are the author,
+assignee, or a participant.
 
 ## Features
 
@@ -25,8 +25,8 @@ If prefered you can run the app directly with the pre-compiled execuatable
 4. **Double-click** the `.exe` file to run it.
 5. **Follow the prompts** on the screen. It will ask for your Provider, URL and
    Token if you haven't set them up beforehand.
-6. Once it finishes, look for a new file named `gitlab_issues.json` or `jira_issues.json` right next
-   to the app.
+6. Once it finishes, look for a new file named `gitlab_issues.json` or
+   `jira_issues.json` right next to the app.
 
 ## Prerequisites
 
@@ -75,20 +75,20 @@ interactively ask for your details.
 
 You can override defaults or environment variables using flags:
 
-| Flag             | Alias     | Description                                              | Default              |
-| :--------------- | :-------- | :------------------------------------------------------- | :------------------- |
-| `--provider`     |           | Provider to use (`gitlab`, `jira`, `all`)                | `gitlab`             |
-| `--gitlabPAT`    | `--pat`   | Your GitLab Personal Access Token                        | _Interactive_        |
-| `--gitlabURL`    | `--url`   | GitLab instance URL                                      | _Interactive_        |
-| `--jiraPAT`      |           | Your Jira Personal Access Token                          | _Interactive_        |
-| `--jiraURL`      |           | Jira instance URL                                        | _Interactive_        |
-| `--jiraUsername` |           | Jira Username (for JQL queries)                          | _Interactive_        |
+| Flag             | Alias     | Description                                              | Default                |
+| :--------------- | :-------- | :------------------------------------------------------- | :--------------------- |
+| `--provider`     |           | Provider to use (`gitlab`, `jira`, `all`)                | `gitlab`               |
+| `--gitlabPAT`    | `--pat`   | Your GitLab Personal Access Token                        | _Interactive_          |
+| `--gitlabURL`    | `--url`   | GitLab instance URL                                      | _Interactive_          |
+| `--jiraPAT`      |           | Your Jira Personal Access Token                          | _Interactive_          |
+| `--jiraURL`      |           | Jira instance URL                                        | _Interactive_          |
+| `--jiraUsername` |           | Jira Username (for JQL queries)                          | _Interactive_          |
 | `--outFile`      | `--out`   | Filename for the JSON output                             | `provider_issues.json` |
-| `--timeRange`    | `--range` | Time period to scan (`week`, `month`, `year`, `custom`)  | `week`               |
-| `--startDate`    | `--start` | Custom start date (`MM-DD-YYYY`) - Required for `custom` | N/A                  |
-| `--endDate`      | `--end`   | Custom end date (`MM-DD-YYYY`) - Required for `custom`   | N/A                  |
-| `--fetchMode`    | `--mode`  | Scan logic (`my_issues`, `all_contributions`)            | `all_contributions`  |
-| `--help`         | `-h`      | Show help message                                        | N/A                  |
+| `--timeRange`    | `--range` | Time period to scan (`week`, `month`, `year`, `custom`)  | `week`                 |
+| `--startDate`    | `--start` | Custom start date (`MM-DD-YYYY`) - Required for `custom` | N/A                    |
+| `--endDate`      | `--end`   | Custom end date (`MM-DD-YYYY`) - Required for `custom`   | N/A                    |
+| `--fetchMode`    | `--mode`  | Scan logic (`my_issues`, `all_contributions`)            | `all_contributions`    |
+| `--help`         | `-h`      | Show help message                                        | N/A                    |
 
 **Example:**
 
@@ -105,4 +105,5 @@ deno run main.ts --provider all --range week
 
 ## Output
 
-The script generates a JSON file containing the raw issue data from the provider.
+The script generates a JSON file containing the raw issue data from the
+provider.
