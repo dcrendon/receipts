@@ -17,7 +17,7 @@ assignee, or a participant.
 
 ## Quick Start (Windows App)
 
-If prefered you can run the app directly with the pre-compiled execuatable
+If prefered you can run the app directly with the pre-compiled executable
 
 1. **Download** the latest `issue-fetcher.exe` from the **Releases** section.
 2. **Generate a PAT** for your provider (GitLab or Jira).
