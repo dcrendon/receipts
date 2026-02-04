@@ -67,7 +67,7 @@ const printHelp = () => {
       --outFile,
           Output file name
           Alias: --out
-          Default: gitlab_issues.json
+          Default: gitlab_issues.json or jira_issues.json (depending on provider)
       --timeRange,
           Time range for issues
           Alias: --range

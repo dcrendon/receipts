@@ -172,19 +172,17 @@ export const jiraIssues = async (
 
       // Check Assignee
 
-      if (issue.fields.assignee && issue.fields.assignee.name === username) {
+      if (issue.fields?.assignee?.accountId === username) {
         isContributor = true;
       } // Check Reporter
 
-      else if (
-        issue.fields.reporter && issue.fields.reporter.name === username
-      ) {
+      else if (issue.fields?.reporter?.accountId === username) {
         isContributor = true;
       } // Check Comments
 
       else {
         for (const comment of comments) {
-          if (comment.author && comment.author.name === username) {
+          if (comment.author?.accountId === username) {
             isContributor = true;
 
             break;

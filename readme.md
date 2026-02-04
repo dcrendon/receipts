@@ -83,12 +83,14 @@ You can override defaults or environment variables using flags:
 | `--jiraPAT`      |           | Your Jira Personal Access Token                          | _Interactive_          |
 | `--jiraURL`      |           | Jira instance URL                                        | _Interactive_          |
 | `--jiraUsername` |           | Jira Username (for JQL queries)                          | _Interactive_          |
-| `--outFile`      | `--out`   | Filename for the JSON output                             | `provider_issues.json` |
+| `--outFile`      | `--out`   | Filename for the JSON output                             | `gitlab_issues.json`*  |
 | `--timeRange`    | `--range` | Time period to scan (`week`, `month`, `year`, `custom`)  | `week`                 |
 | `--startDate`    | `--start` | Custom start date (`MM-DD-YYYY`) - Required for `custom` | N/A                    |
 | `--endDate`      | `--end`   | Custom end date (`MM-DD-YYYY`) - Required for `custom`   | N/A                    |
 | `--fetchMode`    | `--mode`  | Scan logic (`my_issues`, `all_contributions`)            | `all_contributions`    |
 | `--help`         | `-h`      | Show help message                                        | N/A                    |
+
+\* Default output filename depends on the provider: `gitlab_issues.json` for `gitlab`, `jira_issues.json` for `jira`. When `--provider all` is used, the tool writes both `gitlab_issues.json` and `jira_issues.json`.
 
 **Example:**
 
