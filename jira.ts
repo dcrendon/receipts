@@ -170,21 +170,24 @@ export const jiraIssues = async (
     } else if (fetchMode === "all_contributions") {
       let isContributor = false;
 
-      // Check Assignee
+      const matchesUser = (user: any) => {
+        if (!user) return false;
+        return (
+          user.name === username ||
+          user.accountId === username ||
+          user.displayName === username ||
+          user.emailAddress === username
+        );
+      };
 
-      if (issue.fields?.assignee?.accountId === username) {
+      if (matchesUser(issue.fields?.assignee)) {
         isContributor = true;
-      } // Check Reporter
-
-      else if (issue.fields?.reporter?.accountId === username) {
+      } else if (matchesUser(issue.fields?.reporter)) {
         isContributor = true;
-      } // Check Comments
-
-      else {
+      } else {
         for (const comment of comments) {
-          if (comment.author?.accountId === username) {
+          if (matchesUser(comment.author)) {
             isContributor = true;
-
             break;
           }
         }
