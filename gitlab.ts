@@ -229,7 +229,7 @@ export const gitlabIssues = async (
   );
 
   if (!issuesToProcess.size) {
-    promptExit("\nNo issues found to process. Exiting.", 0);
+    return [];
   }
 
   const finalIssues = await filterNotes(

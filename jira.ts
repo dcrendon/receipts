@@ -68,7 +68,6 @@ const getIssueComments = async (
   try {
     const response = await fetch(commentsURL.toString(), {
       headers,
-
       method: "GET",
     });
 
@@ -76,7 +75,6 @@ const getIssueComments = async (
       console.error(
         `Failed to fetch comments for ${issueKey}: ${response.statusText}`,
       );
-
       return [];
     }
 
@@ -154,7 +152,7 @@ export const jiraIssues = async (
   console.log(`Initial fetch: ${issues.length} issues.`);
 
   if (issues.length === 0) {
-    promptExit("\nNo issues found to process. Exiting.", 0);
+    return [];
   }
 
   console.log(`\nFetching comments and filtering...`);
@@ -165,7 +163,6 @@ export const jiraIssues = async (
     const comments = await getIssueComments(jiraURL, headers, issue.key);
 
     // Attach comments to the issue object, normalizing to 'notes' to match GitLab output structure
-
     issue.notes = comments;
 
     if (fetchMode === "my_issues") {

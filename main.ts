@@ -23,11 +23,15 @@ const main = async () => {
       config.fetchMode,
     );
 
-    await Deno.writeTextFile(
-      outFile,
-      JSON.stringify(issues, null, 2),
-    );
-    console.log(`\nGitLab issue data written to ${outFile}`);
+    if (!issues.length) {
+      console.log("\nNo GitLab issues found for the specified criteria.");
+    } else {
+      await Deno.writeTextFile(
+        outFile,
+        JSON.stringify(issues, null, 2),
+      );
+      console.log(`\nGitLab issue data written to ${outFile}`);
+    }
   }
 
   if (config.provider === "jira" || config.provider === "all") {
@@ -48,11 +52,15 @@ const main = async () => {
       config.fetchMode,
     );
 
-    await Deno.writeTextFile(
-      outFile,
-      JSON.stringify(issues, null, 2),
-    );
-    console.log(`\nJira issue data written to ${outFile}`);
+    if (!issues.length) {
+      console.log("\nNo Jira issues found for the specified criteria.");
+    } else {
+      await Deno.writeTextFile(
+        outFile,
+        JSON.stringify(issues, null, 2),
+      );
+      console.log(`\nJira issue data written to ${outFile}`);
+    }
   }
 
   promptExit("Process completed successfully.", 0);
