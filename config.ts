@@ -1,5 +1,6 @@
 import { parseArgs, promptSecret } from "@std/cli";
 import { load } from "@std/dotenv";
+import { getDefaultOutFile, runConfigWizard } from "./tui.ts";
 import { Config } from "./types.ts";
 
 export const promptExit = (message: string | null, exitCode: number): never => {
@@ -119,6 +120,8 @@ const printHelp = () => {
       --help,
           Show this help message.
           alias: -h
+      --tui
+          Launch interactive wizard-style TUI flow
       --useMockData
           Use local fixture files instead of provider APIs
           Alias: --mock
@@ -131,10 +134,10 @@ const printHelp = () => {
   promptExit(null, 0);
 };
 
-export const generateConfig = async (): Promise<Config> => {
+export const generateConfig = async (rawArgs = Deno.args): Promise<Config> => {
   const envConfig = await checkENV();
 
-  const args = parseArgs(Deno.args, {
+  const args = parseArgs(rawArgs, {
     string: [
       "gitlabPAT",
       "gitlabURL",
@@ -153,7 +156,7 @@ export const generateConfig = async (): Promise<Config> => {
       "mockDataDir",
     ],
     // collect: ["projectIDs"],
-    boolean: ["help", "useMockData"],
+    boolean: ["help", "useMockData", "tui"],
     alias: {
       help: "h",
       useMockData: "mock",
@@ -200,17 +203,14 @@ export const generateConfig = async (): Promise<Config> => {
     // projectIDs: (args.projectIDs as string[]) ?? envConfig.projectIDs,
   };
 
+  if (args.tui) {
+    return await runConfigWizard(combinedConfig);
+  }
+
   if (!combinedConfig.outFile) {
-    if (combinedConfig.provider === "jira") {
-      combinedConfig.outFile = "jira_issues.json";
-    } else if (combinedConfig.provider === "github") {
-      combinedConfig.outFile = "github_issues.json";
-    } else if (combinedConfig.provider === "gitlab") {
-      combinedConfig.outFile = "gitlab_issues.json";
-    } else {
-      // For 'all', we will handle filenames in main.ts, but set a dummy here
-      combinedConfig.outFile = "issues.json";
-    }
+    combinedConfig.outFile = getDefaultOutFile(
+      combinedConfig.provider ?? "gitlab",
+    );
   }
 
   // Validate GitLab Config

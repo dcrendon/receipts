@@ -18,9 +18,11 @@ time range and fetch mode.
 
 ## Canonical Commands
 
-- Run CLI: `deno run main.ts`
+- Fetch issues: `deno run main.ts fetch`
+- Run wizard TUI: `deno run main.ts tui`
+- Build reports from existing files: `deno run main.ts report --provider all`
 - Run CLI (offline fixtures):
-  `deno run --allow-read --allow-env main.ts --provider all --mock`
+  `deno run --allow-read --allow-env main.ts fetch --provider all --mock`
 - Run with watch: `deno task dev`
 - Format: `deno task fmt`
 - Test suite: `deno test` (or `deno task test`)

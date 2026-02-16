@@ -9,8 +9,12 @@ range, then writes JSON files with matching issues.
 
 - `main.ts`
   - Entry point.
-  - Generates config, computes date range, orchestrates provider execution.
+  - Routes subcommands (`fetch`, `tui`, `report`, `help`).
+  - Orchestrates provider execution for `fetch` and report generation for
+    `report`.
   - Writes output files and exits using evaluated run status.
+- `core/cli.ts`
+  - Resolves command surface for v2 command routing and prints command help.
 - `core/run_status.ts`
   - Shared run outcome model (`SUCCESS`, `PARTIAL`, `FAILED`), summary
     evaluation, and exit-code mapping.
@@ -29,6 +33,10 @@ range, then writes JSON files with matching issues.
 - `config.ts`
   - Loads `.env`, parses CLI flags, prompts interactively for missing values.
   - Validates required provider inputs.
+- `tui.ts`
+  - Wizard-style interactive configuration flow (`--tui`).
+  - Collects provider/time/fetch/auth options with input validation and
+    confirmation.
 - `dates.ts`
   - Converts `timeRange` into ISO start/end timestamps.
   - Handles `custom` date parsing (`MM-DD-YYYY`).
@@ -59,21 +67,23 @@ range, then writes JSON files with matching issues.
 
 ## Data Flow
 
-1. `main.ts` calls `generateConfig()` from `config.ts`.
-2. `main.ts` calls `getDateRange()` from `dates.ts`.
-3. `main.ts` gets adapters from `providers/index.ts` and executes enabled
+1. `main.ts` resolves command via `core/cli.ts`.
+2. For `fetch`/`tui`, `main.ts` calls `generateConfig()` from `config.ts`.
+3. `main.ts` calls `getDateRange()` from `dates.ts`.
+4. `main.ts` gets adapters from `providers/index.ts` and executes enabled
    provider adapters.
-4. Adapter fetch path:
+5. Adapter fetch path:
    - Mock mode: load fixture arrays from `fixtures/*.mock.json`
    - Live mode GitLab adapter -> `gitlabIssues(...)`
    - Live mode Jira adapter -> `jiraIssues(...)`
    - Live mode GitHub adapter -> `githubIssues(...)`
-5. Provider adapter returns filtered issue list.
-6. `main.ts` writes provider JSON output file(s).
-7. Reporting pipeline normalizes and aggregates successful provider issues.
-8. `main.ts` writes report artifacts (`reports/*-summary.md`,
+6. Provider adapter returns filtered issue list.
+7. `main.ts` writes provider JSON output file(s).
+8. Reporting pipeline normalizes and aggregates successful provider issues.
+9. `main.ts` writes report artifacts (`reports/*-summary.md`,
    `reports/*-normalized.json`).
-9. `main.ts` aggregates provider outcomes and exits with structured status code.
+10. `main.ts` aggregates provider outcomes and exits with structured status
+    code.
 
 ## Provider Differences
 

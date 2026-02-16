@@ -39,8 +39,14 @@ deno run main.ts
 ### Development Commands
 
 ```bash
-# run CLI
-deno run main.ts
+# fetch issues (recommended v2 command surface)
+deno run main.ts fetch --provider all --mock
+
+# launch wizard-style TUI flow
+deno run main.ts tui
+
+# build report from existing provider JSON files
+deno run main.ts report --provider all
 
 # watch mode
 deno task dev
@@ -53,11 +59,11 @@ deno test
 # or
 deno task test
 
-# current flags/help
-deno run main.ts --help
+# command help
+deno run main.ts help
 
 # offline run with local fixtures (no provider credentials required)
-deno run --allow-read --allow-env main.ts --provider all --mock
+deno run --allow-read --allow-env main.ts fetch --provider all --mock
 ```
 
 ### Expected Outputs
@@ -118,12 +124,31 @@ If preferred, you can run the app directly with the pre-compiled executable.
 Run directly in CLI:
 
 ```bash
-deno run main.ts
+deno run main.ts fetch
 ```
 
 If `.env` and flags are missing, the tool prompts for required values. When
 `--mock`/`--useMockData` is enabled, provider API calls are skipped and fixture
 files are used instead.
+
+### Command Surface (v2)
+
+- `fetch`: fetch provider issues and write provider output files.
+- `tui`: run guided wizard flow and then execute fetch.
+- `report`: generate report artifacts from existing provider JSON files.
+
+Legacy flag-only invocation still works, but prints a deprecation warning.
+
+### Wizard TUI
+
+Run with `tui` to use a guided flow that:
+
+1. selects provider and mock/live mode,
+2. configures time range and fetch mode,
+3. validates required auth/URL fields for selected providers,
+4. confirms configuration before starting.
+
+This is recommended for first-time runs and manual local use.
 
 ### CLI Flags
 
@@ -147,7 +172,8 @@ You can override defaults or environment variables using flags:
 | `--fetchMode`      | `--mode`  | `my_issues`, `all_contributions`                                                                       | `all_contributions`   |
 | `--useMockData`    | `--mock`  | Use local fixture files instead of provider APIs                                                       | `false`               |
 | `--mockDataDir`    |           | Fixture directory path (`gitlab_issues.mock.json`, `jira_issues.mock.json`, `github_issues.mock.json`) | `fixtures`            |
-| `--help`           | `-h`      | Show help message                                                                                      | N/A                   |
+| `--help`           | `-h`      | Show flag help message                                                                                 | N/A                   |
+| `--tui`            |           | Launch wizard-style interactive configuration flow (also available via `tui` command)                  | `false`               |
 
 \* Default output filename depends on provider. With `--provider all`, the tool
 writes `gitlab_issues.json`, `jira_issues.json`, and `github_issues.json`.
@@ -156,19 +182,22 @@ writes `gitlab_issues.json`, `jira_issues.json`, and `github_issues.json`.
 
 ```bash
 # GitLab
-deno run main.ts --range month --mode my_issues --out monthly_report.json
+deno run main.ts fetch --range month --mode my_issues --out monthly_report.json
 
 # Jira
-deno run main.ts --provider jira --jiraURL https://my.jira.com --jiraUsername myuser --range week
+deno run main.ts fetch --provider jira --jiraURL https://my.jira.com --jiraUsername myuser --range week
 
 # Both
-deno run main.ts --provider all --range week
+deno run main.ts fetch --provider all --range week
 
 # GitHub
-deno run main.ts --provider github --githubURL https://api.github.com --githubUsername myuser --range week
+deno run main.ts fetch --provider github --githubURL https://api.github.com --githubUsername myuser --range week
 
 # Offline local run (uses fixtures/*.mock.json)
-deno run --allow-read --allow-env main.ts --provider all --mock
+deno run --allow-read --allow-env main.ts fetch --provider all --mock
+
+# Generate report only (from existing issue json files)
+deno run main.ts report --provider all
 ```
 
 ## Troubleshooting
