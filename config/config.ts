@@ -1,7 +1,7 @@
 import { parseArgs, promptSecret } from "@std/cli";
 import { load } from "@std/dotenv";
 import { getDefaultOutFile, runConfigWizard } from "./tui.ts";
-import { Config } from "./types.ts";
+import { Config } from "../shared/types.ts";
 
 export const promptExit = (message: string | null, exitCode: number): never => {
   if (message) {
@@ -100,7 +100,7 @@ const printHelp = () => {
       --outFile,
           Output file name
           Alias: --out
-          Default: provider_issues.json (depending on provider)
+          Default: output/provider_issues.json (depending on provider)
       --timeRange,
           Time range for issues
           Alias: --range
@@ -332,7 +332,7 @@ Configuration:
   }
   - Output File(s): ${
     finalConfig.provider === "all"
-      ? "gitlab_issues.json, jira_issues.json, github_issues.json"
+      ? "output/gitlab_issues.json, output/jira_issues.json, output/github_issues.json"
       : finalConfig.outFile
   }
   - Time Range: ${finalConfig.timeRange}

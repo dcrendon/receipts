@@ -1,18 +1,19 @@
 import { promptSecret } from "@std/cli";
-import { Config } from "./types.ts";
+import { Config } from "../shared/types.ts";
 
 const PROVIDERS = ["gitlab", "jira", "github", "all"] as const;
 const TIME_RANGES = ["week", "month", "year", "custom"] as const;
 const FETCH_MODES = ["my_issues", "all_contributions"] as const;
+const OUTPUT_DIR = "output";
 
 const isNonEmpty = (value: string | null): value is string =>
   Boolean(value && value.trim().length > 0);
 
 export const getDefaultOutFile = (provider: Config["provider"]): string => {
-  if (provider === "gitlab") return "gitlab_issues.json";
-  if (provider === "jira") return "jira_issues.json";
-  if (provider === "github") return "github_issues.json";
-  return "issues.json";
+  if (provider === "gitlab") return `${OUTPUT_DIR}/gitlab_issues.json`;
+  if (provider === "jira") return `${OUTPUT_DIR}/jira_issues.json`;
+  if (provider === "github") return `${OUTPUT_DIR}/github_issues.json`;
+  return `${OUTPUT_DIR}/issues.json`;
 };
 
 export const normalizeChoice = <T extends readonly string[]>(
@@ -137,10 +138,12 @@ export const runConfigWizard = async (
     normalizeChoice(seed.fetchMode, FETCH_MODES) ?? "all_contributions",
   );
 
-  const outFile = provider === "all" ? "issues.json" : askRequiredText(
-    "Step 5/6 - Output file name",
-    seed.outFile ?? getDefaultOutFile(provider),
-  );
+  const outFile = provider === "all"
+    ? `${OUTPUT_DIR}/issues.json`
+    : askRequiredText(
+      "Step 5/6 - Output file name",
+      seed.outFile ?? getDefaultOutFile(provider),
+    );
 
   const mockDataDir = useMockData
     ? askOptionalText(
@@ -218,7 +221,9 @@ export const runConfigWizard = async (
   console.log(`- Mock Data: ${config.useMockData ? "enabled" : "disabled"}`);
   console.log(
     `- Output: ${
-      config.provider === "all" ? "provider-specific files" : config.outFile
+      config.provider === "all"
+        ? `${OUTPUT_DIR}/gitlab_issues.json, ${OUTPUT_DIR}/jira_issues.json, ${OUTPUT_DIR}/github_issues.json`
+        : config.outFile
     }`,
   );
 

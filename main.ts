@@ -1,17 +1,30 @@
 import { parseArgs } from "@std/cli";
-import { generateConfig, promptExit } from "./config.ts";
+import { generateConfig, promptExit } from "./config/config.ts";
 import { printCommandHelp, resolveCommand } from "./core/cli.ts";
 import {
   evaluateRunStatus,
   EXIT_CODES,
   ProviderRunResult,
 } from "./core/run_status.ts";
-import { getDateRange } from "./dates.ts";
+import { getDateRange } from "./config/dates.ts";
 import { getProviderAdapters } from "./providers/index.ts";
 import { providerLabel } from "./providers/provider_meta.ts";
 import { ProviderName } from "./providers/types.ts";
 import { buildRunReport, writeRunReport } from "./reporting/reporting.ts";
-import { Config } from "./types.ts";
+import { Config } from "./shared/types.ts";
+
+const ensureParentDir = async (path: string): Promise<void> => {
+  const parts = path.split(/[\\/]/);
+  if (parts.length <= 1) {
+    return;
+  }
+
+  parts.pop();
+  const dir = parts.join("/");
+  if (dir.length > 0) {
+    await Deno.mkdir(dir, { recursive: true });
+  }
+};
 
 const runFetch = async (args: string[], useTui: boolean) => {
   const config = await generateConfig(useTui ? [...args, "--tui"] : args);
@@ -35,6 +48,7 @@ const runFetch = async (args: string[], useTui: boolean) => {
           `\nNo ${providerTitle} issues found for the specified criteria.`,
         );
       } else {
+        await ensureParentDir(outFile);
         await Deno.writeTextFile(
           outFile,
           JSON.stringify(issues, null, 2),
@@ -115,6 +129,18 @@ const readIssuesFileIfPresent = async (
   }
 };
 
+const readIssuesFromCandidates = async (
+  paths: string[],
+): Promise<unknown[] | undefined> => {
+  for (const path of paths) {
+    const issues = await readIssuesFileIfPresent(path);
+    if (issues) {
+      return issues;
+    }
+  }
+  return undefined;
+};
+
 const runReportCommand = async (args: string[]) => {
   const parsed = parseArgs(args, {
     string: [
@@ -132,22 +158,28 @@ const runReportCommand = async (args: string[]) => {
   });
 
   const provider = (parsed.provider as Config["provider"] | undefined) ?? "all";
-  const gitlabFile = parsed.gitlabFile ?? "gitlab_issues.json";
-  const jiraFile = parsed.jiraFile ?? "jira_issues.json";
-  const githubFile = parsed.githubFile ?? "github_issues.json";
+  const gitlabFiles = parsed.gitlabFile
+    ? [parsed.gitlabFile]
+    : ["output/gitlab_issues.json", "gitlab_issues.json"];
+  const jiraFiles = parsed.jiraFile
+    ? [parsed.jiraFile]
+    : ["output/jira_issues.json", "jira_issues.json"];
+  const githubFiles = parsed.githubFile
+    ? [parsed.githubFile]
+    : ["output/github_issues.json", "github_issues.json"];
 
   const providerIssues: Partial<Record<ProviderName, unknown[]>> = {};
 
   if (provider === "gitlab" || provider === "all") {
-    const issues = await readIssuesFileIfPresent(gitlabFile);
+    const issues = await readIssuesFromCandidates(gitlabFiles);
     if (issues) providerIssues.gitlab = issues;
   }
   if (provider === "jira" || provider === "all") {
-    const issues = await readIssuesFileIfPresent(jiraFile);
+    const issues = await readIssuesFromCandidates(jiraFiles);
     if (issues) providerIssues.jira = issues;
   }
   if (provider === "github" || provider === "all") {
-    const issues = await readIssuesFileIfPresent(githubFile);
+    const issues = await readIssuesFromCandidates(githubFiles);
     if (issues) providerIssues.github = issues;
   }
 

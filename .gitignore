@@ -1,7 +1,8 @@
 .env
+output/
+reports/
 gitlab_issues.json
 jira_issues.json
 github_issues.json
 gitlab-issues.exe
-reports/
 *.png

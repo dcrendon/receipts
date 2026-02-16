@@ -245,10 +245,11 @@ export const buildRunReport = (
 export const writeRunReport = async (
   report: RunReport,
 ): Promise<{ markdownPath: string; normalizedPath: string }> => {
-  await Deno.mkdir("reports", { recursive: true });
+  const reportsDir = "output/reports";
+  await Deno.mkdir(reportsDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:]/g, "-");
-  const markdownPath = `reports/${timestamp}-summary.md`;
-  const normalizedPath = `reports/${timestamp}-normalized.json`;
+  const markdownPath = `${reportsDir}/${timestamp}-summary.md`;
+  const normalizedPath = `${reportsDir}/${timestamp}-normalized.json`;
 
   await Deno.writeTextFile(markdownPath, report.markdown);
   await Deno.writeTextFile(

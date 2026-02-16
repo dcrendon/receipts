@@ -1,6 +1,6 @@
-import { gitlabIssues } from "../gitlab.ts";
-import { loadMockIssues } from "../mocks.ts";
-import { Config } from "../types.ts";
+import { gitlabIssues } from "./gitlab.ts";
+import { loadMockIssues } from "./mocks.ts";
+import { Config } from "../shared/types.ts";
 import { DateWindow, ProviderAdapter } from "./types.ts";
 
 type GitLabDeps = {
@@ -24,7 +24,9 @@ export class GitLabAdapter implements ProviderAdapter {
   }
 
   getOutFile(config: Config): string {
-    return config.provider === "all" ? "gitlab_issues.json" : config.outFile;
+    return config.provider === "all"
+      ? "output/gitlab_issues.json"
+      : config.outFile;
   }
 
   async fetchIssues(

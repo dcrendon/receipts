@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { githubIssues } from "../../github.ts";
+import { githubIssues } from "../../providers/github.ts";
 
 const makeJsonResponse = (body: unknown, status = 200): Response => {
   return new Response(JSON.stringify(body), {

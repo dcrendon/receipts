@@ -1,5 +1,5 @@
 import { requestJsonWithRetry } from "./http_client.ts";
-import { GitHubIssue } from "./types.ts";
+import { GitHubIssue } from "../shared/types.ts";
 
 interface GitHubSearchResponse {
   total_count?: number;

@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { jiraIssues } from "../../jira.ts";
+import { jiraIssues } from "../../providers/jira.ts";
 
 const makeJsonResponse = (body: unknown, status = 200): Response => {
   return new Response(JSON.stringify(body), {

@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { getDateRange } from "../../dates.ts";
+import { getDateRange } from "../../config/dates.ts";
 
 Deno.test("getDateRange returns ISO bounds for week range", () => {
   const { startDate, endDate } = getDateRange({

@@ -11,7 +11,7 @@ import {
   startOfYear,
 } from "date-fns";
 import { promptExit } from "./config.ts";
-import { Config } from "./types.ts";
+import { Config } from "../shared/types.ts";
 
 export const getDateRange = (
   config: Pick<Config, "timeRange" | "startDate" | "endDate">,

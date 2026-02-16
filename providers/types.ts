@@ -1,4 +1,4 @@
-import { Config } from "../types.ts";
+import { Config } from "../shared/types.ts";
 
 export type ProviderName = "gitlab" | "jira" | "github";
 

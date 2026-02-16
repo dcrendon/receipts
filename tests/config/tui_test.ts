@@ -1,11 +1,11 @@
 import { assertEquals } from "@std/assert";
-import { getDefaultOutFile, normalizeChoice } from "../../tui.ts";
+import { getDefaultOutFile, normalizeChoice } from "../../config/tui.ts";
 
 Deno.test("getDefaultOutFile returns provider defaults", () => {
-  assertEquals(getDefaultOutFile("gitlab"), "gitlab_issues.json");
-  assertEquals(getDefaultOutFile("jira"), "jira_issues.json");
-  assertEquals(getDefaultOutFile("github"), "github_issues.json");
-  assertEquals(getDefaultOutFile("all"), "issues.json");
+  assertEquals(getDefaultOutFile("gitlab"), "output/gitlab_issues.json");
+  assertEquals(getDefaultOutFile("jira"), "output/jira_issues.json");
+  assertEquals(getDefaultOutFile("github"), "output/github_issues.json");
+  assertEquals(getDefaultOutFile("all"), "output/issues.json");
 });
 
 Deno.test("normalizeChoice validates and normalizes input", () => {

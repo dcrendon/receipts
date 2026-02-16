@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { requestJsonWithRetry } from "../../http_client.ts";
+import { requestJsonWithRetry } from "../../providers/http_client.ts";
 
 const jsonResponse = (
   body: unknown,

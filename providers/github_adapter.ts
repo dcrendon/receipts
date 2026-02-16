@@ -1,6 +1,6 @@
-import { githubIssues } from "../github.ts";
-import { loadMockIssues } from "../mocks.ts";
-import { Config } from "../types.ts";
+import { githubIssues } from "./github.ts";
+import { loadMockIssues } from "./mocks.ts";
+import { Config } from "../shared/types.ts";
 import { DateWindow, ProviderAdapter } from "./types.ts";
 
 type GitHubDeps = {
@@ -24,7 +24,9 @@ export class GitHubAdapter implements ProviderAdapter {
   }
 
   getOutFile(config: Config): string {
-    return config.provider === "all" ? "github_issues.json" : config.outFile;
+    return config.provider === "all"
+      ? "output/github_issues.json"
+      : config.outFile;
   }
 
   async fetchIssues(

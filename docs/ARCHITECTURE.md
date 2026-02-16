@@ -3,7 +3,7 @@
 ## Purpose
 
 This CLI fetches issue activity from GitLab, Jira, and/or GitHub for a time
-range, then writes JSON files with matching issues.
+range, then writes JSON files with matching issues under `output/`.
 
 ## Module Responsibilities
 
@@ -30,31 +30,31 @@ range, then writes JSON files with matching issues.
   - Jira adapter implementation for live API fetches or mock fixture mode.
 - `providers/github_adapter.ts`
   - GitHub adapter implementation for live API fetches or mock fixture mode.
-- `config.ts`
+- `config/config.ts`
   - Loads `.env`, parses CLI flags, prompts interactively for missing values.
   - Validates required provider inputs.
-- `tui.ts`
+- `config/tui.ts`
   - Wizard-style interactive configuration flow (`--tui`).
   - Collects provider/time/fetch/auth options with input validation and
     confirmation.
-- `dates.ts`
+- `config/dates.ts`
   - Converts `timeRange` into ISO start/end timestamps.
   - Handles `custom` date parsing (`MM-DD-YYYY`).
-- `gitlab.ts`
+- `providers/gitlab.ts`
   - Fetches user, projects, issues, and notes from GitLab API.
   - Applies `my_issues` vs `all_contributions` filtering logic.
-- `jira.ts`
+- `providers/jira.ts`
   - Builds JQL and fetches issues/comments from Jira API.
   - Applies contribution filtering and null cleanup.
-- `github.ts`
+- `providers/github.ts`
   - Uses GitHub issue search and comments APIs.
   - Applies `my_issues` / `all_contributions` filtering and metadata enrichment
     (labels, assignees, milestone, repository).
-- `types.ts`
+- `shared/types.ts`
   - Shared config and provider issue interfaces.
-- `mocks.ts`
+- `providers/mocks.ts`
   - Loads local fixture files for offline runs when mock mode is enabled.
-- `http_client.ts`
+- `providers/http_client.ts`
   - Shared JSON HTTP client with retry/backoff and `Retry-After` handling for
     429/5xx responses.
 - `reporting/reporting.ts`
@@ -68,20 +68,21 @@ range, then writes JSON files with matching issues.
 ## Data Flow
 
 1. `main.ts` resolves command via `core/cli.ts`.
-2. For `fetch`/`tui`, `main.ts` calls `generateConfig()` from `config.ts`.
-3. `main.ts` calls `getDateRange()` from `dates.ts`.
+2. For `fetch`/`tui`, `main.ts` calls `generateConfig()` from
+   `config/config.ts`.
+3. `main.ts` calls `getDateRange()` from `config/dates.ts`.
 4. `main.ts` gets adapters from `providers/index.ts` and executes enabled
    provider adapters.
 5. Adapter fetch path:
    - Mock mode: load fixture arrays from `fixtures/*.mock.json`
-   - Live mode GitLab adapter -> `gitlabIssues(...)`
-   - Live mode Jira adapter -> `jiraIssues(...)`
-   - Live mode GitHub adapter -> `githubIssues(...)`
+   - Live mode GitLab adapter -> `providers/gitlab.ts` (`gitlabIssues(...)`)
+   - Live mode Jira adapter -> `providers/jira.ts` (`jiraIssues(...)`)
+   - Live mode GitHub adapter -> `providers/github.ts` (`githubIssues(...)`)
 6. Provider adapter returns filtered issue list.
-7. `main.ts` writes provider JSON output file(s).
+7. `main.ts` writes provider JSON output file(s) under `output/`.
 8. Reporting pipeline normalizes and aggregates successful provider issues.
-9. `main.ts` writes report artifacts (`reports/*-summary.md`,
-   `reports/*-normalized.json`).
+9. `main.ts` writes report artifacts (`output/reports/*-summary.md`,
+   `output/reports/*-normalized.json`).
 10. `main.ts` aggregates provider outcomes and exits with structured status
     code.
 

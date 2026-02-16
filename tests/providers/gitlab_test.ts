@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { gitlabIssues } from "../../gitlab.ts";
+import { gitlabIssues } from "../../providers/gitlab.ts";
 
 const makeJsonResponse = (body: unknown, status = 200): Response => {
   return new Response(JSON.stringify(body), {

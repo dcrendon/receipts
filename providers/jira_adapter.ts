@@ -1,6 +1,6 @@
-import { jiraIssues } from "../jira.ts";
-import { loadMockIssues } from "../mocks.ts";
-import { Config } from "../types.ts";
+import { jiraIssues } from "./jira.ts";
+import { loadMockIssues } from "./mocks.ts";
+import { Config } from "../shared/types.ts";
 import { DateWindow, ProviderAdapter } from "./types.ts";
 
 type JiraDeps = {
@@ -24,7 +24,9 @@ export class JiraAdapter implements ProviderAdapter {
   }
 
   getOutFile(config: Config): string {
-    return config.provider === "all" ? "jira_issues.json" : config.outFile;
+    return config.provider === "all"
+      ? "output/jira_issues.json"
+      : config.outFile;
   }
 
   async fetchIssues(

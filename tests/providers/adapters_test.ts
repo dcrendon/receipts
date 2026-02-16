@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { Config } from "../../types.ts";
+import { Config } from "../../shared/types.ts";
 import { GitHubAdapter } from "../../providers/github_adapter.ts";
 import { GitLabAdapter } from "../../providers/gitlab_adapter.ts";
 import { JiraAdapter } from "../../providers/jira_adapter.ts";
@@ -22,7 +22,7 @@ Deno.test("GitLabAdapter canRun/getOutFile follow provider selection", () => {
   assertEquals(adapter.canRun(baseConfig({ provider: "jira" })), false);
   assertEquals(
     adapter.getOutFile(baseConfig({ provider: "all", outFile: "custom.json" })),
-    "gitlab_issues.json",
+    "output/gitlab_issues.json",
   );
 });
 
@@ -33,7 +33,7 @@ Deno.test("JiraAdapter canRun/getOutFile follow provider selection", () => {
   assertEquals(adapter.canRun(baseConfig({ provider: "gitlab" })), false);
   assertEquals(
     adapter.getOutFile(baseConfig({ provider: "all", outFile: "custom.json" })),
-    "jira_issues.json",
+    "output/jira_issues.json",
   );
 });
 
@@ -44,7 +44,7 @@ Deno.test("GitHubAdapter canRun/getOutFile follow provider selection", () => {
   assertEquals(adapter.canRun(baseConfig({ provider: "jira" })), false);
   assertEquals(
     adapter.getOutFile(baseConfig({ provider: "all", outFile: "custom.json" })),
-    "github_issues.json",
+    "output/github_issues.json",
   );
 });
 

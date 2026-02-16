@@ -1,4 +1,4 @@
-import { GitlabIssue } from "./types.ts";
+import { GitlabIssue } from "../shared/types.ts";
 import { requestJsonWithRetry } from "./http_client.ts";
 
 const getPaginatedResults = async (

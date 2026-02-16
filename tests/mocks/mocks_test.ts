@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { loadMockIssues } from "../../mocks.ts";
+import { loadMockIssues } from "../../providers/mocks.ts";
 
 Deno.test("loadMockIssues loads GitLab fixture array", async () => {
   const issues = await loadMockIssues("gitlab");

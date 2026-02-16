@@ -68,14 +68,14 @@ deno run --allow-read --allow-env main.ts fetch --provider all --mock
 
 ### Expected Outputs
 
-- `provider=gitlab`: writes `gitlab_issues.json` (or `OUT_FILE`).
-- `provider=jira`: writes `jira_issues.json` (or `OUT_FILE`).
-- `provider=github`: writes `github_issues.json` (or `OUT_FILE`).
-- `provider=all`: writes `gitlab_issues.json`, `jira_issues.json`, and
-  `github_issues.json`.
+- `provider=gitlab`: writes `output/gitlab_issues.json` (or `OUT_FILE`).
+- `provider=jira`: writes `output/jira_issues.json` (or `OUT_FILE`).
+- `provider=github`: writes `output/github_issues.json` (or `OUT_FILE`).
+- `provider=all`: writes `output/gitlab_issues.json`, `output/jira_issues.json`,
+  and `output/github_issues.json`.
 - Any successful run also writes report artifacts:
-  - `reports/<timestamp>-summary.md`
-  - `reports/<timestamp>-normalized.json`
+  - `output/reports/<timestamp>-summary.md`
+  - `output/reports/<timestamp>-normalized.json`
 
 ### Exit Codes
 
@@ -116,8 +116,8 @@ If preferred, you can run the app directly with the pre-compiled executable.
 3. See [CLI Flags](#cli-flags) for options.
 4. Double-click the `.exe` file to run it.
 5. Follow the prompts (provider, URL, token).
-6. Find `gitlab_issues.json`, `jira_issues.json`, or `github_issues.json` next
-   to the app.
+6. Find `output/gitlab_issues.json`, `output/jira_issues.json`, or
+   `output/github_issues.json`.
 
 ## Usage
 
@@ -154,29 +154,30 @@ This is recommended for first-time runs and manual local use.
 
 You can override defaults or environment variables using flags:
 
-| Flag               | Alias     | Description                                                                                            | Default               |
-| :----------------- | :-------- | :----------------------------------------------------------------------------------------------------- | :-------------------- |
-| `--provider`       |           | Provider to use (`gitlab`, `jira`, `github`, `all`)                                                    | `gitlab`              |
-| `--gitlabPAT`      | `--pat`   | GitLab Personal Access Token                                                                           | _Interactive_         |
-| `--gitlabURL`      | `--url`   | GitLab instance URL                                                                                    | _Interactive_         |
-| `--jiraPAT`        |           | Jira Personal Access Token                                                                             | _Interactive_         |
-| `--jiraURL`        |           | Jira instance URL                                                                                      | _Interactive_         |
-| `--jiraUsername`   |           | Jira username (for JQL queries)                                                                        | _Interactive_         |
-| `--githubPAT`      |           | GitHub Personal Access Token                                                                           | _Interactive_         |
-| `--githubURL`      |           | GitHub API URL (for Cloud or Enterprise)                                                               | _Interactive_         |
-| `--githubUsername` |           | GitHub username                                                                                        | _Interactive_         |
-| `--outFile`        | `--out`   | Output filename                                                                                        | `gitlab_issues.json`* |
-| `--timeRange`      | `--range` | `week`, `month`, `year`, `custom`                                                                      | `week`                |
-| `--startDate`      | `--start` | Custom start date (`MM-DD-YYYY`), required for `custom`                                                | N/A                   |
-| `--endDate`        | `--end`   | Custom end date (`MM-DD-YYYY`), required for `custom`                                                  | N/A                   |
-| `--fetchMode`      | `--mode`  | `my_issues`, `all_contributions`                                                                       | `all_contributions`   |
-| `--useMockData`    | `--mock`  | Use local fixture files instead of provider APIs                                                       | `false`               |
-| `--mockDataDir`    |           | Fixture directory path (`gitlab_issues.mock.json`, `jira_issues.mock.json`, `github_issues.mock.json`) | `fixtures`            |
-| `--help`           | `-h`      | Show flag help message                                                                                 | N/A                   |
-| `--tui`            |           | Launch wizard-style interactive configuration flow (also available via `tui` command)                  | `false`               |
+| Flag               | Alias     | Description                                                                                            | Default                      |
+| :----------------- | :-------- | :----------------------------------------------------------------------------------------------------- | :--------------------------- |
+| `--provider`       |           | Provider to use (`gitlab`, `jira`, `github`, `all`)                                                    | `gitlab`                     |
+| `--gitlabPAT`      | `--pat`   | GitLab Personal Access Token                                                                           | _Interactive_                |
+| `--gitlabURL`      | `--url`   | GitLab instance URL                                                                                    | _Interactive_                |
+| `--jiraPAT`        |           | Jira Personal Access Token                                                                             | _Interactive_                |
+| `--jiraURL`        |           | Jira instance URL                                                                                      | _Interactive_                |
+| `--jiraUsername`   |           | Jira username (for JQL queries)                                                                        | _Interactive_                |
+| `--githubPAT`      |           | GitHub Personal Access Token                                                                           | _Interactive_                |
+| `--githubURL`      |           | GitHub API URL (for Cloud or Enterprise)                                                               | _Interactive_                |
+| `--githubUsername` |           | GitHub username                                                                                        | _Interactive_                |
+| `--outFile`        | `--out`   | Output filename                                                                                        | `output/gitlab_issues.json`* |
+| `--timeRange`      | `--range` | `week`, `month`, `year`, `custom`                                                                      | `week`                       |
+| `--startDate`      | `--start` | Custom start date (`MM-DD-YYYY`), required for `custom`                                                | N/A                          |
+| `--endDate`        | `--end`   | Custom end date (`MM-DD-YYYY`), required for `custom`                                                  | N/A                          |
+| `--fetchMode`      | `--mode`  | `my_issues`, `all_contributions`                                                                       | `all_contributions`          |
+| `--useMockData`    | `--mock`  | Use local fixture files instead of provider APIs                                                       | `false`                      |
+| `--mockDataDir`    |           | Fixture directory path (`gitlab_issues.mock.json`, `jira_issues.mock.json`, `github_issues.mock.json`) | `fixtures`                   |
+| `--help`           | `-h`      | Show flag help message                                                                                 | N/A                          |
+| `--tui`            |           | Launch wizard-style interactive configuration flow (also available via `tui` command)                  | `false`                      |
 
 \* Default output filename depends on provider. With `--provider all`, the tool
-writes `gitlab_issues.json`, `jira_issues.json`, and `github_issues.json`.
+writes `output/gitlab_issues.json`, `output/jira_issues.json`, and
+`output/github_issues.json`.
 
 ### Examples
 
