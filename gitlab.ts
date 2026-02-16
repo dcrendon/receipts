@@ -1,4 +1,5 @@
 import { GitlabIssue } from "./types.ts";
+import { requestJsonWithRetry } from "./http_client.ts";
 
 const getPaginatedResults = async (
   gitlabURL: string,
@@ -12,32 +13,24 @@ const getPaginatedResults = async (
   while (true) {
     params["page"] = page;
     params["per_page"] = perPage;
-    try {
-      const url = new URL(gitlabURL);
+    const url = new URL(gitlabURL);
 
-      const searchParams = new URLSearchParams();
-      Object.keys(params).forEach((key) => {
-        searchParams.append(key, String(params[key]));
-      });
-      url.search = searchParams.toString();
+    const searchParams = new URLSearchParams();
+    Object.keys(params).forEach((key) => {
+      searchParams.append(key, String(params[key]));
+    });
+    url.search = searchParams.toString();
 
-      const response = await fetch(url.toString(), {
-        headers,
-      });
-      if (!response.ok) {
-        throw new Error(
-          `GitLab request failed: ${response.status} ${response.statusText}`,
-        );
-      }
-      const data = await response.json();
-      if (data.length === 0) {
-        break;
-      }
-      allIssues.push(...data);
-      page++;
-    } catch (error) {
-      throw error;
+    const data = await requestJsonWithRetry<any[]>(
+      url.toString(),
+      { headers },
+      "GitLab",
+    );
+    if (data.length === 0) {
+      break;
     }
+    allIssues.push(...data);
+    page++;
   }
 
   return allIssues;
@@ -49,15 +42,11 @@ const getUserID = async (
 ): Promise<number> => {
   console.log("\nFetching user information...");
 
-  const response = await fetch(`${gitlabURL}/api/v4/user`, {
-    headers,
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch GitLab user information: ${response.status} ${response.statusText}`,
-    );
-  }
-  const data = await response.json();
+  const data = await requestJsonWithRetry<{ id: number }>(
+    `${gitlabURL}/api/v4/user`,
+    { headers },
+    "GitLab user",
+  );
 
   console.log(`User ID fetched: ${data.id}`);
 

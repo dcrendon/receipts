@@ -8,6 +8,7 @@
 3. Run validations:
    - `deno task fmt`
    - `deno test` (or `deno task test`)
+   - Confirm retry/rate-limit behavior when provider fetch logic changes
    - `deno run main.ts --help`
    - Optional offline behavior check:
      `deno run --allow-read --allow-env main.ts --provider all --mock`

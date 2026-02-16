@@ -1,3 +1,5 @@
+import { requestJsonWithRetry } from "./http_client.ts";
+
 const getPaginatedResults = async (
   jiraURL: string,
   headers: Record<string, string>,
@@ -11,37 +13,29 @@ const getPaginatedResults = async (
   const searchURL = new URL("rest/api/2/search", baseURL);
 
   while (true) {
-    try {
-      searchURL.searchParams.set("jql", jql);
-      searchURL.searchParams.set("startAt", String(startAt));
-      searchURL.searchParams.set("maxResults", String(maxResults));
+    searchURL.searchParams.set("jql", jql);
+    searchURL.searchParams.set("startAt", String(startAt));
+    searchURL.searchParams.set("maxResults", String(maxResults));
 
-      const response = await fetch(searchURL.toString(), {
+    const data = await requestJsonWithRetry<{ issues?: any[]; total?: number }>(
+      searchURL.toString(),
+      {
         headers,
         method: "GET",
-      });
+      },
+      "Jira search",
+    );
+    const issues = data.issues || [];
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch Jira issues: ${response.status} ${response.statusText}`,
-        );
-      }
+    if (issues.length === 0) {
+      break;
+    }
 
-      const data = await response.json();
-      const issues = data.issues || [];
+    allIssues.push(...issues);
 
-      if (issues.length === 0) {
-        break;
-      }
-
-      allIssues.push(...issues);
-
-      startAt += issues.length;
-      if (startAt >= (data.total || 0)) {
-        break;
-      }
-    } catch (error) {
-      throw error;
+    startAt += issues.length;
+    if (startAt >= (data.total || 0)) {
+      break;
     }
   }
 
@@ -63,20 +57,14 @@ const getIssueComments = async (
   commentsURL.searchParams.set("maxResults", "100");
 
   try {
-    const response = await fetch(commentsURL.toString(), {
-      headers,
-      method: "GET",
-    });
-
-    if (!response.ok) {
-      console.error(
-        `Failed to fetch comments for ${issueKey}: ${response.statusText}`,
-      );
-      return [];
-    }
-
-    const data = await response.json();
-
+    const data = await requestJsonWithRetry<{ comments?: any[] }>(
+      commentsURL.toString(),
+      {
+        headers,
+        method: "GET",
+      },
+      `Jira comments ${issueKey}`,
+    );
     return data.comments || [];
   } catch (error) {
     console.error(`Error fetching comments for ${issueKey}: ${error}`);

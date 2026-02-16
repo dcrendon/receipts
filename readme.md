@@ -9,6 +9,8 @@ assignee, or a participant.
 - **Multi-Provider**: Supports both GitLab and Jira.
 - **Auto-Discovery**: Finds your contributions through provider APIs.
 - **Flexible Config**: Use `.env`, command-line flags, or interactive prompts.
+- **Resilient Fetching**: Shared retry/backoff for transient API failures and
+  rate limits.
 - **Smart Filtering**:
   - `my_issues`: only issues you created or are assigned to.
   - `all_contributions`: includes issues where you commented/participated.
@@ -162,6 +164,9 @@ deno run --allow-read --allow-env main.ts --provider all --mock
 - Authentication error (401/403):
   - Verify PAT validity/scopes for selected provider.
   - Confirm URL base matches your instance.
+- Rate limit/transient API errors:
+  - The CLI retries 429/5xx responses with backoff automatically.
+  - If failures persist, rerun later or narrow time range to reduce API load.
 - Invalid custom date:
   - Use `MM-DD-YYYY` format for `START_DATE`/`END_DATE` or `--start`/`--end`.
 - Empty output:

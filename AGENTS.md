@@ -35,6 +35,8 @@ CLI run for the touched provider path.
 - Prefer explicit error handling with actionable messages.
 - Keep runtime exit semantics machine-friendly (structured exit codes and no
   interactive blocking in non-interactive runs).
+- Use shared HTTP retry/backoff utilities for provider API calls instead of
+  copy/pasted fetch retry logic.
 - Keep provider behavior consistent unless a behavior change is required.
 
 ## Change Policy

@@ -35,6 +35,9 @@ writes JSON files with matching issues.
   - Shared config and provider issue interfaces.
 - `mocks.ts`
   - Loads local fixture files for offline runs when mock mode is enabled.
+- `http_client.ts`
+  - Shared JSON HTTP client with retry/backoff and `Retry-After` handling for
+    429/5xx responses.
 - `*_test.ts`
   - Unit and integration-style tests.
   - Current coverage includes date range behavior and provider fetch/filter
@@ -72,6 +75,7 @@ writes JSON files with matching issues.
 - Output is raw provider issue JSON plus `notes` for comments.
 - No long-term state is persisted beyond output files.
 - Provider API failures are explicit errors, not silent partial fetches.
+- Transient provider/network failures use shared retry/backoff behavior.
 
 ## Validation And Quality Gates
 
