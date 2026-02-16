@@ -20,10 +20,10 @@ and writes JSON output for a selected time range and fetch mode.
 - Run CLI: `deno run main.ts`
 - Run with watch: `deno task dev`
 - Format: `deno task fmt`
-- Future test command: `deno test`
+- Test suite: `deno test` (or `deno task test`)
 
-When validating changes, run at least `deno task fmt` and a representative CLI
-run for the touched provider path.
+When validating changes, run `deno task fmt`, `deno test`, and a representative
+CLI run for the touched provider path.
 
 ## Coding Constraints
 
@@ -37,9 +37,16 @@ run for the touched provider path.
 
 - Keep PRs small and task-scoped.
 - Do not modify unrelated files.
+- Every non-trivial code change must include tests.
+- Every behavior/process change must update docs in the same PR:
+  - `readme.md` for user-visible behavior/flags/output.
+  - `docs/ARCHITECTURE.md` for flow/module changes.
+  - `AGENTS.md` when agent workflow or review policy changes.
+  - `CONTRIBUTING.md` when contributor expectations change.
 - Preserve backwards-compatible CLI behavior unless requested.
 - Before merge, validate:
   - Formatting passes (`deno task fmt`).
+  - Tests pass (`deno test`).
   - The main flow runs for affected provider(s).
   - Docs are updated for changed flags/env vars/behavior.
 
@@ -51,4 +58,3 @@ When providing reviews, use this order:
 2. Risks and edge cases.
 3. Missing tests or validation gaps.
 4. Short summary of change quality and readiness.
-

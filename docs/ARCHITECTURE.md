@@ -25,6 +25,10 @@ writes JSON files with matching issues.
   - Applies contribution filtering and null cleanup.
 - `types.ts`
   - Shared config and provider issue interfaces.
+- `*_test.ts`
+  - Unit and integration-style tests.
+  - Current coverage includes date range behavior and provider fetch/filter
+    flows with mocked HTTP responses.
 
 ## Data Flow
 
@@ -55,3 +59,11 @@ writes JSON files with matching issues.
 - Output is raw provider issue JSON plus `notes` for comments.
 - No long-term state is persisted beyond output files.
 
+## Validation And Quality Gates
+
+- Formatting: `deno task fmt`
+- Tests: `deno test` (or `deno task test`)
+- Runtime sanity: `deno run main.ts --help` and provider-path run when behavior
+  changes
+- Non-trivial code changes must include tests and related documentation updates
+  in the same PR.

@@ -46,6 +46,11 @@ deno task dev
 # format source
 deno task fmt
 
+# run tests
+deno test
+# or
+deno task test
+
 # current flags/help
 deno run main.ts --help
 ```
@@ -61,6 +66,21 @@ deno run main.ts --help
 - Repo workflow and acceptance standards: `CONTRIBUTING.md`
 - Agent and reviewer operating rules: `AGENTS.md`
 - System/module map: `docs/ARCHITECTURE.md`
+
+## Quality Gates
+
+For non-trivial changes, this repository requires:
+
+- code changes,
+- tests covering new behavior and key failure paths,
+- documentation/policy updates in the same PR when behavior or process changes.
+
+Minimum validation before merge:
+
+- `deno task fmt`
+- `deno test` (or `deno task test`)
+- `deno run main.ts --help`
+- representative provider run when behavior changes
 
 ## Quick Start (Windows App)
 
@@ -87,20 +107,20 @@ If `.env` and flags are missing, the tool prompts for required values.
 
 You can override defaults or environment variables using flags:
 
-| Flag             | Alias     | Description                                              | Default                |
-| :--------------- | :-------- | :------------------------------------------------------- | :--------------------- |
-| `--provider`     |           | Provider to use (`gitlab`, `jira`, `all`)               | `gitlab`               |
-| `--gitlabPAT`    | `--pat`   | GitLab Personal Access Token                             | _Interactive_          |
-| `--gitlabURL`    | `--url`   | GitLab instance URL                                      | _Interactive_          |
-| `--jiraPAT`      |           | Jira Personal Access Token                               | _Interactive_          |
-| `--jiraURL`      |           | Jira instance URL                                        | _Interactive_          |
-| `--jiraUsername` |           | Jira username (for JQL queries)                          | _Interactive_          |
-| `--outFile`      | `--out`   | Output filename                                          | `gitlab_issues.json`*  |
-| `--timeRange`    | `--range` | `week`, `month`, `year`, `custom`                        | `week`                 |
-| `--startDate`    | `--start` | Custom start date (`MM-DD-YYYY`), required for `custom` | N/A                    |
-| `--endDate`      | `--end`   | Custom end date (`MM-DD-YYYY`), required for `custom`   | N/A                    |
-| `--fetchMode`    | `--mode`  | `my_issues`, `all_contributions`                         | `all_contributions`    |
-| `--help`         | `-h`      | Show help message                                        | N/A                    |
+| Flag             | Alias     | Description                                             | Default               |
+| :--------------- | :-------- | :------------------------------------------------------ | :-------------------- |
+| `--provider`     |           | Provider to use (`gitlab`, `jira`, `all`)               | `gitlab`              |
+| `--gitlabPAT`    | `--pat`   | GitLab Personal Access Token                            | _Interactive_         |
+| `--gitlabURL`    | `--url`   | GitLab instance URL                                     | _Interactive_         |
+| `--jiraPAT`      |           | Jira Personal Access Token                              | _Interactive_         |
+| `--jiraURL`      |           | Jira instance URL                                       | _Interactive_         |
+| `--jiraUsername` |           | Jira username (for JQL queries)                         | _Interactive_         |
+| `--outFile`      | `--out`   | Output filename                                         | `gitlab_issues.json`* |
+| `--timeRange`    | `--range` | `week`, `month`, `year`, `custom`                       | `week`                |
+| `--startDate`    | `--start` | Custom start date (`MM-DD-YYYY`), required for `custom` | N/A                   |
+| `--endDate`      | `--end`   | Custom end date (`MM-DD-YYYY`), required for `custom`   | N/A                   |
+| `--fetchMode`    | `--mode`  | `my_issues`, `all_contributions`                        | `all_contributions`   |
+| `--help`         | `-h`      | Show help message                                       | N/A                   |
 
 \* Default output filename depends on provider. With `--provider all`, the tool
 writes both `gitlab_issues.json` and `jira_issues.json`.

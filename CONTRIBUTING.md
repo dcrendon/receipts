@@ -7,9 +7,12 @@
 2. Make focused changes for one concern.
 3. Run validations:
    - `deno task fmt`
+   - `deno test` (or `deno task test`)
    - `deno run main.ts --help`
    - A representative provider run when behavior changes.
-4. Open a PR with clear scope, test evidence, and risks.
+4. Update docs/policy files impacted by your change:
+   - `readme.md`, `docs/ARCHITECTURE.md`, `AGENTS.md`, `CONTRIBUTING.md`
+5. Open a PR with clear scope, test evidence, and risks.
 
 ## Commit Message Format
 
@@ -27,6 +30,7 @@ Each PR should include:
 - Why it changed.
 - How it was validated (commands + outcome).
 - Any behavior changes or migration notes.
+- Docs updated (or explicit N/A with justification).
 - Follow-ups that are intentionally out of scope.
 
 ## How To Work With Codex
@@ -53,7 +57,7 @@ A change is done when:
 
 1. Required behavior is implemented and matches acceptance criteria.
 2. Formatting is clean.
-3. Basic runtime validation is completed for affected flow(s).
-4. Documentation is updated when flags/env vars/outputs change.
-5. No secrets are introduced in code, logs, or docs.
-
+3. Tests are added for non-trivial changes and passing.
+4. Basic runtime validation is completed for affected flow(s).
+5. Documentation and policy files are updated where impacted.
+6. No secrets are introduced in code, logs, or docs.
