@@ -49,7 +49,7 @@ CLI run for the touched provider path.
 - Every non-trivial code change must include tests.
 - Every behavior/process change must update docs in the same PR:
   - `readme.md` for user-visible behavior/flags/output.
-  - `docs/ARCHITECTURE.md` for flow/module changes.
+  - `ARCHITECTURE.md` for flow/module changes.
   - `AGENTS.md` when agent workflow or review policy changes.
   - `CONTRIBUTING.md` when contributor expectations change.
 - Preserve backwards-compatible CLI behavior unless requested.

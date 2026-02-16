@@ -90,7 +90,7 @@ waiting for an Enter key prompt.
 
 - Repo workflow and acceptance standards: `CONTRIBUTING.md`
 - Agent and reviewer operating rules: `AGENTS.md`
-- System/module map: `docs/ARCHITECTURE.md`
+- System/module map: `ARCHITECTURE.md`
 
 ## Quality Gates
 

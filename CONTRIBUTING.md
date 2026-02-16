@@ -18,7 +18,7 @@
      `2` partial)
    - A representative provider run when behavior changes.
 4. Update docs/policy files impacted by your change:
-   - `readme.md`, `docs/ARCHITECTURE.md`, `AGENTS.md`, `CONTRIBUTING.md`
+   - `readme.md`, `ARCHITECTURE.md`, `AGENTS.md`, `CONTRIBUTING.md`
 5. Open a PR with clear scope, test evidence, and risks.
 
 ## Commit Message Format
