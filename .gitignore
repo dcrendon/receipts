@@ -1,4 +1,5 @@
 .env
+.DS_Store
 output/
 reports/
 gitlab_issues.json
@@ -7,3 +8,5 @@ github_issues.json
 gitlab-issues.exe
 *.png
 node_modules/
+reporting/shadcn-renderer/dist/assets/
+reporting/shadcn-renderer/dist/index.html
