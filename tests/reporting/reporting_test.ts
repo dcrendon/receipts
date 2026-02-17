@@ -56,6 +56,7 @@ Deno.test("normalizeProviderIssues normalizes attribution fields across provider
   assertEquals(gitlab[0].isAuthoredByUser, true);
   assertEquals(gitlab[0].isCommentedByUser, true);
   assertEquals(gitlab[0].userCommentCount, 1);
+  assertEquals(gitlab[0].description, "A gitlab description");
   assertEquals(gitlab[0].descriptionSnippet, "A gitlab description");
 
   assertEquals(jira[0].provider, "jira");
@@ -90,6 +91,7 @@ Deno.test("buildReportSummary aggregates buckets and contribution counters", () 
       isCommentedByUser: false,
       userCommentCount: 0,
       impactScore: 20,
+      description: "",
       descriptionSnippet: "",
     },
     {
@@ -111,6 +113,7 @@ Deno.test("buildReportSummary aggregates buckets and contribution counters", () 
       isCommentedByUser: true,
       userCommentCount: 2,
       impactScore: 65,
+      description: "",
       descriptionSnippet: "",
     },
   ]);

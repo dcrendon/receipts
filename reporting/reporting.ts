@@ -29,6 +29,7 @@ export interface NormalizedIssue {
   isCommentedByUser: boolean;
   userCommentCount: number;
   impactScore: number;
+  description: string;
   descriptionSnippet: string;
   url?: string;
 }
@@ -291,11 +292,15 @@ const stringifyTextTree = (value: unknown): string => {
   return [directText ?? "", nested].filter(Boolean).join(" ");
 };
 
-const toDescriptionSnippet = (value: unknown, maxLength = 420): string => {
+const toDescription = (value: unknown): string => {
   const normalized = stringifyTextTree(value)
     .replace(/\s+/g, " ")
     .trim();
+  return normalized;
+};
 
+const toDescriptionSnippet = (value: unknown, maxLength = 420): string => {
+  const normalized = toDescription(value);
   if (!normalized) return "";
   if (normalized.length <= maxLength) return normalized;
   return `${normalized.slice(0, maxLength - 3)}...`;
@@ -536,6 +541,7 @@ const normalizeGitLabIssue = (
     isCommentedByUser,
     userCommentCount,
     impactScore: 0,
+    description: toDescription(raw.description),
     descriptionSnippet: toDescriptionSnippet(raw.description),
     url: toStringOrEmpty(raw.web_url),
   };
@@ -609,6 +615,7 @@ const normalizeJiraIssue = (
     isCommentedByUser,
     userCommentCount,
     impactScore: 0,
+    description: toDescription(fields.description),
     descriptionSnippet: toDescriptionSnippet(fields.description),
     url: toStringOrEmpty(raw.self),
   };
@@ -688,6 +695,7 @@ const normalizeGitHubIssue = (
     isCommentedByUser,
     userCommentCount,
     impactScore: 0,
+    description: toDescription(raw.body),
     descriptionSnippet: toDescriptionSnippet(raw.body),
     url: toStringOrEmpty(raw.html_url),
   };
@@ -2702,9 +2710,13 @@ export const writeRunReport = async (
   const normalizedPath = `${outputDir}/${timestamp}-normalized.json`;
   const htmlPath = `${outputDir}/${timestamp}-summary.html`;
 
+  const normalizedIssuesForJson = report.normalizedIssues.map(
+    ({ descriptionSnippet: _descriptionSnippet, ...issue }) => issue,
+  );
+
   await Deno.writeTextFile(
     normalizedPath,
-    JSON.stringify(report.normalizedIssues, null, 2),
+    JSON.stringify(normalizedIssuesForJson, null, 2),
   );
   await Deno.writeTextFile(htmlPath, report.html);
   const keepFiles = new Set([
