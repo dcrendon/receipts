@@ -437,8 +437,7 @@ function buildClientScript() {
         ]);
         const csv = [headers, ...data]
           .map((line) => line.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(','))
-          .join('
-');
+          .join('\\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
