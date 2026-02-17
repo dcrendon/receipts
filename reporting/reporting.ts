@@ -2696,17 +2696,30 @@ export const writeRunReport = async (
 ): Promise<
   { markdownPath?: string; htmlPath?: string; normalizedPath: string }
 > => {
-  const reportsDir = "output/reports";
-  await Deno.mkdir(reportsDir, { recursive: true });
+  const outputDir = "output";
+  await Deno.mkdir(outputDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:]/g, "-");
-  const normalizedPath = `${reportsDir}/${timestamp}-normalized.json`;
-  const htmlPath = `${reportsDir}/${timestamp}-summary.html`;
+  const normalizedPath = `${outputDir}/${timestamp}-normalized.json`;
+  const htmlPath = `${outputDir}/${timestamp}-summary.html`;
 
   await Deno.writeTextFile(
     normalizedPath,
     JSON.stringify(report.normalizedIssues, null, 2),
   );
   await Deno.writeTextFile(htmlPath, report.html);
+  const keepFiles = new Set([
+    normalizedPath.slice(outputDir.length + 1),
+    htmlPath.slice(outputDir.length + 1),
+  ]);
+
+  for await (const entry of Deno.readDir(outputDir)) {
+    if (!entry.isFile) {
+      await Deno.remove(`${outputDir}/${entry.name}`, { recursive: true });
+      continue;
+    }
+    if (keepFiles.has(entry.name)) continue;
+    await Deno.remove(`${outputDir}/${entry.name}`);
+  }
 
   return {
     markdownPath: undefined,

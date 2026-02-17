@@ -20,19 +20,6 @@ import { ProviderName } from "./providers/types.ts";
 import { buildRunReport, writeRunReport } from "./reporting/reporting.ts";
 import { Config } from "./shared/types.ts";
 
-const ensureParentDir = async (path: string): Promise<void> => {
-  const parts = path.split(/[\\/]/);
-  if (parts.length <= 1) {
-    return;
-  }
-
-  parts.pop();
-  const dir = parts.join("/");
-  if (dir.length > 0) {
-    await Deno.mkdir(dir, { recursive: true });
-  }
-};
-
 const formatMissingProviders = (
   missingByProvider: Partial<Record<ProviderName, (keyof Config)[]>>,
 ): string => {
@@ -86,7 +73,6 @@ const runFetch = async (config: Config) => {
     }
 
     try {
-      const outFile = adapter.getOutFile(config);
       const issues = await adapter.fetchIssues(config, { startDate, endDate });
       const providerTitle = providerLabel(adapter.name);
 
@@ -95,12 +81,7 @@ const runFetch = async (config: Config) => {
           `\nNo ${providerTitle} issues found for the specified criteria.`,
         );
       } else {
-        await ensureParentDir(outFile);
-        await Deno.writeTextFile(
-          outFile,
-          JSON.stringify(issues, null, 2),
-        );
-        console.log(`\n${providerTitle} issue data written to ${outFile}`);
+        console.log(`\nFetched ${issues.length} ${providerTitle} issues.`);
       }
 
       runResults.push({
