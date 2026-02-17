@@ -310,7 +310,7 @@ const STYLE_BLOCK = `
     border-radius: 999px;
     margin: 0 auto;
     position: relative;
-    background: conic-gradient(#1d4ed8 0deg, #1d4ed8 120deg, #0f766e 120deg, #0f766e 210deg, #b45309 210deg, #b45309 360deg);
+    background: var(--donut-gradient, conic-gradient(#1d4ed8 0deg, #1d4ed8 120deg, #0f766e 120deg, #0f766e 210deg, #b45309 210deg, #b45309 360deg));
   }
   .donut::after {
     content: "";
@@ -582,8 +582,7 @@ function buildClientScript() {
   const copyStandup = document.querySelector('[data-copy-standup]');
   if (copyStandup) {
     copyStandup.addEventListener('click', async () => {
-      const bullets = bySel('[data-standup-bullet]').slice(0, 5).map((node) => '- ' + (node.textContent || '').trim()).join('
-');
+      const bullets = bySel('[data-standup-bullet]').slice(0, 5).map((node) => '- ' + (node.textContent || '').trim()).join('\\n');
       try {
         await navigator.clipboard.writeText(bullets);
         copyStandup.textContent = 'Copied';
@@ -612,8 +611,7 @@ function buildClientScript() {
         row.getAttribute('data-assigned') || '',
         row.getAttribute('data-commented') || '',
       ]);
-      const csv = [headers, ...rows].map((line) => line.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(',')).join('
-');
+      const csv = [headers, ...rows].map((line) => line.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(',')).join('\\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -675,14 +673,45 @@ function buildClientScript() {
 }
 function ReportDocument({ payload }) {
   const { summary, narrative, context, normalizedIssues, comparison, coverage } = payload;
-  const windowLabel = `${formatHumanDate(context.startDate)} -> ${formatHumanDate(context.endDate)}`;
+  const windowLabel = `${formatHumanDate(context.startDate)} → ${formatHumanDate(context.endDate)}`;
   const generatedAt = formatHumanDateTime(context.generatedAt ?? (/* @__PURE__ */ new Date()).toISOString());
-  summary.byProvider.github + summary.byProvider.gitlab + summary.byProvider.jira;
+  const providerFromDistribution = new Map(
+    payload.providerDistribution.map((segment) => [segment.provider, segment.count])
+  );
   const providerSegments = [
-    { provider: "github", count: summary.byProvider.github },
-    { provider: "gitlab", count: summary.byProvider.gitlab },
-    { provider: "jira", count: summary.byProvider.jira }
+    {
+      provider: "github",
+      count: providerFromDistribution.get("github") ?? summary.byProvider.github
+    },
+    {
+      provider: "gitlab",
+      count: providerFromDistribution.get("gitlab") ?? summary.byProvider.gitlab
+    },
+    {
+      provider: "jira",
+      count: providerFromDistribution.get("jira") ?? summary.byProvider.jira
+    }
   ];
+  const providerTotal = providerSegments.reduce(
+    (total, segment) => total + segment.count,
+    0
+  );
+  const providerColor = {
+    github: "#1d4ed8",
+    gitlab: "#0f766e",
+    jira: "#b45309"
+  };
+  const donutGradient = providerTotal === 0 ? "conic-gradient(#cbd5e1 0deg, #cbd5e1 360deg)" : (() => {
+    let cumulative = 0;
+    const slices = providerSegments.filter((segment) => segment.count > 0).map((segment) => {
+      const start = Math.round(cumulative / providerTotal * 360);
+      cumulative += segment.count;
+      const end = Math.round(cumulative / providerTotal * 360);
+      const color = providerColor[segment.provider];
+      return `${color} ${start}deg ${end}deg`;
+    });
+    return `conic-gradient(${slices.join(", ")})`;
+  })();
   const completedPct = summary.totalIssues ? Math.round(summary.byBucket.completed / summary.totalIssues * 100) : 0;
   const activePct = summary.totalIssues ? Math.round(summary.byBucket.active / summary.totalIssues * 100) : 0;
   const blockedPct = summary.totalIssues ? Math.round(summary.byBucket.blocked / summary.totalIssues * 100) : 0;
@@ -716,8 +745,9 @@ function ReportDocument({ payload }) {
             ] })
           ] }),
           /* @__PURE__ */ jsxs("div", { className: "meta", children: [
+            "Source: ",
             context.sourceMode ?? "report",
-            " mode | ",
+            " | Fetch mode: ",
             context.fetchMode
           ] })
         ] }),
@@ -780,7 +810,14 @@ function ReportDocument({ payload }) {
         ] }),
         /* @__PURE__ */ jsx("aside", { children: /* @__PURE__ */ jsxs("div", { className: "panel", style: { marginBottom: 0, padding: "12px" }, children: [
           /* @__PURE__ */ jsx("h3", { className: "section-title", style: { marginBottom: "8px" }, children: "Distribution" }),
-          /* @__PURE__ */ jsx("div", { className: "donut", "aria-label": "provider distribution donut" }),
+          /* @__PURE__ */ jsx(
+            "div",
+            {
+              className: "donut",
+              "aria-label": "provider distribution donut",
+              style: { "--donut-gradient": donutGradient }
+            }
+          ),
           /* @__PURE__ */ jsx("div", { className: "meta", style: { marginTop: "8px" }, children: providerSegments.map((segment) => `${PROVIDER_LABEL[segment.provider]} ${segment.count}`).join(" | ") }),
           /* @__PURE__ */ jsxs("div", { className: "state-bars", children: [
             /* @__PURE__ */ jsxs("div", { children: [

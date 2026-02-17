@@ -876,6 +876,7 @@ const highlightNarrativeFallback = (issue: ReportIssueView): string => {
 const buildDeterministicNarrative = (
   summary: ReportSummary,
   context: ReportContext,
+  coverage?: ReportCoverageSummary,
 ): {
   headlineLead: string;
   headlineFacts: string;
@@ -885,11 +886,13 @@ const buildDeterministicNarrative = (
   weeklyPointLeads: string[];
   weeklyPointBullets: string[][];
 } => {
-  const providerCount = [
-    summary.byProvider.gitlab,
-    summary.byProvider.jira,
-    summary.byProvider.github,
-  ].filter((count) => count > 0).length;
+  const providerCount = coverage
+    ? coverage.connectedProviderCount
+    : [
+      summary.byProvider.gitlab,
+      summary.byProvider.jira,
+      summary.byProvider.github,
+    ].filter((count) => count > 0).length;
 
   const headlineLead = context.reportProfile === "brief"
     ? "Focused activity snapshot for the selected reporting window."
@@ -897,8 +900,11 @@ const buildDeterministicNarrative = (
     ? "Impact showcase emphasizing execution momentum and collaboration."
     : "Activity retro emphasizing completed work, active flow, and next risks.";
 
-  const headlineFacts =
-    `${summary.totalIssues} issues across ${providerCount} provider${
+  const headlineFacts = summary.totalIssues === 0
+    ? `No issues found across ${providerCount} connected provider${
+      providerCount === 1 ? "" : "s"
+    }; ${summary.byBucket.completed} completed, ${summary.byBucket.active} active, ${summary.byBucket.blocked} blocked.`
+    : `${summary.totalIssues} issues across ${providerCount} provider${
       providerCount === 1 ? "" : "s"
     }; ${summary.byBucket.completed} completed, ${summary.byBucket.active} active, ${summary.byBucket.blocked} blocked.`;
 
@@ -997,8 +1003,9 @@ const buildDeterministicNarrative = (
 const buildNarrativeWithAi = async (
   summary: ReportSummary,
   context: ReportContext,
+  coverage?: ReportCoverageSummary,
 ): Promise<NarrativeSections> => {
-  const deterministic = buildDeterministicNarrative(summary, context);
+  const deterministic = buildDeterministicNarrative(summary, context, coverage);
 
   const aiRewrite = await applyAiNarrativeRewrite(
     {
@@ -2647,7 +2654,7 @@ export const buildRunReport = async (
   const coverage = buildCoverageSummary(summary, options.diagnostics);
   const providerDistribution = buildProviderDistribution(summary.byProvider);
   const trendSeries = buildTrendSeries(summary, comparison);
-  const narrative = await buildNarrativeWithAi(summary, context);
+  const narrative = await buildNarrativeWithAi(summary, context, coverage);
   const settings = PROFILE_SETTINGS[context.reportProfile];
   const appendixIssues = normalizedIssues.slice(0, settings.appendix);
 

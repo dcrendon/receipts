@@ -432,7 +432,7 @@ const STYLE_BLOCK = `
     border-radius: 999px;
     margin: 0 auto;
     position: relative;
-    background: conic-gradient(#1d4ed8 0deg, #1d4ed8 120deg, #0f766e 120deg, #0f766e 210deg, #b45309 210deg, #b45309 360deg);
+    background: var(--donut-gradient, conic-gradient(#1d4ed8 0deg, #1d4ed8 120deg, #0f766e 120deg, #0f766e 210deg, #b45309 210deg, #b45309 360deg));
   }
   .donut::after {
     content: "";
@@ -710,7 +710,7 @@ function buildClientScript() {
   const copyStandup = document.querySelector('[data-copy-standup]');
   if (copyStandup) {
     copyStandup.addEventListener('click', async () => {
-      const bullets = bySel('[data-standup-bullet]').slice(0, 5).map((node) => '- ' + (node.textContent || '').trim()).join('\n');
+      const bullets = bySel('[data-standup-bullet]').slice(0, 5).map((node) => '- ' + (node.textContent || '').trim()).join('\\n');
       try {
         await navigator.clipboard.writeText(bullets);
         copyStandup.textContent = 'Copied';
@@ -739,7 +739,7 @@ function buildClientScript() {
         row.getAttribute('data-assigned') || '',
         row.getAttribute('data-commented') || '',
       ]);
-      const csv = [headers, ...rows].map((line) => line.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(',')).join('\n');
+      const csv = [headers, ...rows].map((line) => line.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(',')).join('\\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -803,17 +803,50 @@ function buildClientScript() {
 function ReportDocument({ payload }: { payload: RenderPayload }) {
   const { summary, narrative, context, normalizedIssues, comparison, coverage } =
     payload;
-  const windowLabel = `${formatHumanDate(context.startDate)} -> ${formatHumanDate(context.endDate)}`;
+  const windowLabel = `${formatHumanDate(context.startDate)} → ${formatHumanDate(context.endDate)}`;
   const generatedAt = formatHumanDateTime(context.generatedAt ?? new Date().toISOString());
 
-  const providerTotal = summary.byProvider.github + summary.byProvider.gitlab +
-    summary.byProvider.jira;
-
+  const providerFromDistribution = new Map(
+    payload.providerDistribution.map((segment) => [segment.provider, segment.count]),
+  );
   const providerSegments = [
-    { provider: "github" as const, count: summary.byProvider.github },
-    { provider: "gitlab" as const, count: summary.byProvider.gitlab },
-    { provider: "jira" as const, count: summary.byProvider.jira },
+    {
+      provider: "github" as const,
+      count: providerFromDistribution.get("github") ?? summary.byProvider.github,
+    },
+    {
+      provider: "gitlab" as const,
+      count: providerFromDistribution.get("gitlab") ?? summary.byProvider.gitlab,
+    },
+    {
+      provider: "jira" as const,
+      count: providerFromDistribution.get("jira") ?? summary.byProvider.jira,
+    },
   ];
+  const providerTotal = providerSegments.reduce(
+    (total, segment) => total + segment.count,
+    0,
+  );
+  const providerColor: Record<ProviderName, string> = {
+    github: "#1d4ed8",
+    gitlab: "#0f766e",
+    jira: "#b45309",
+  };
+  const donutGradient = providerTotal === 0
+    ? "conic-gradient(#cbd5e1 0deg, #cbd5e1 360deg)"
+    : (() => {
+      let cumulative = 0;
+      const slices = providerSegments
+        .filter((segment) => segment.count > 0)
+        .map((segment) => {
+          const start = Math.round((cumulative / providerTotal) * 360);
+          cumulative += segment.count;
+          const end = Math.round((cumulative / providerTotal) * 360);
+          const color = providerColor[segment.provider];
+          return `${color} ${start}deg ${end}deg`;
+        });
+      return `conic-gradient(${slices.join(", ")})`;
+    })();
 
   const completedPct = summary.totalIssues
     ? Math.round((summary.byBucket.completed / summary.totalIssues) * 100)
@@ -853,7 +886,7 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
                 <h1 className="title">Activity Report</h1>
                 <div className="meta">Window: {windowLabel} | Data freshness: {generatedAt}</div>
               </div>
-              <div className="meta">{context.sourceMode ?? "report"} mode | {context.fetchMode}</div>
+              <div className="meta">Source: {context.sourceMode ?? "report"} | Fetch mode: {context.fetchMode}</div>
             </div>
             <div className="header-controls">
               <select className="control" aria-label="Window selector">
@@ -927,7 +960,11 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
               <aside>
                 <div className="panel" style={{ marginBottom: 0, padding: "12px" }}>
                   <h3 className="section-title" style={{ marginBottom: "8px" }}>Distribution</h3>
-                  <div className="donut" aria-label="provider distribution donut" />
+                  <div
+                    className="donut"
+                    aria-label="provider distribution donut"
+                    style={{ "--donut-gradient": donutGradient } as React.CSSProperties}
+                  />
                   <div className="meta" style={{ marginTop: "8px" }}>
                     {providerSegments.map((segment) => `${PROVIDER_LABEL[segment.provider]} ${segment.count}`).join(" | ")}
                   </div>
