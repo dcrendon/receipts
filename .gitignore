@@ -8,5 +8,4 @@ github_issues.json
 gitlab-issues.exe
 *.png
 node_modules/
-reporting/shadcn-renderer/dist/assets/
-reporting/shadcn-renderer/dist/index.html
+reporting/shadcn-renderer/dist/
