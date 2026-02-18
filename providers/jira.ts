@@ -144,15 +144,9 @@ export const jiraIssues = async (
 ) => {
   const jql = buildJql(username, startDate, endDate, fetchMode);
 
-  console.log("\nFetching Jira issues...");
-  console.log(`JQL: ${jql}`);
-
   const issues = await getPaginatedResults(jiraURL, headers, jql);
 
-  console.log(`Initial fetch: ${issues.length} issues.`);
   if (!issues.length) return [];
-
-  console.log("\nFetching comments and filtering...");
 
   const includeAllFetchedIssues = fetchMode === "my_issues";
   const finalIssues: any[] = [];
@@ -166,6 +160,5 @@ export const jiraIssues = async (
     }
   }
 
-  console.log(`Total issues after processing: ${finalIssues.length}`);
   return removeNulls(finalIssues);
 };

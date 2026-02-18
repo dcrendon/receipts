@@ -34,7 +34,7 @@ Deno.test("normalizeChoice validates and normalizes input", () => {
   assertEquals(normalizeChoice("invalid", allowed), undefined);
 });
 
-Deno.test("formatProviderReadinessSummary includes missing fields", () => {
+Deno.test("formatProviderReadinessSummary marks missing providers as skipping", () => {
   const lines = formatProviderReadinessSummary(
     baseConfig({
       provider: "all",
@@ -47,15 +47,22 @@ Deno.test("formatProviderReadinessSummary includes missing fields", () => {
     }),
   );
 
-  assertEquals(lines[0], "\nProvider readiness:");
-  assertEquals(lines.some((line) => line.includes("GitLab: ready")), true);
+  assertEquals(lines[0], "Provider readiness:");
+  assertEquals(
+    lines.some((line) => line.includes("GitLab") && line.includes("| ready")),
+    true,
+  );
   assertEquals(
     lines.some((line) =>
-      line.includes("Jira: missing Jira URL, Jira username")
+      line.includes("Jira") &&
+      line.includes("| skipping")
     ),
     true,
   );
-  assertEquals(lines.some((line) => line.includes("GitHub: ready")), true);
+  assertEquals(
+    lines.some((line) => line.includes("GitHub") && line.includes("| ready")),
+    true,
+  );
 });
 
 Deno.test("resolveAiWizardConfig disables AI when OPENAI_API_KEY is missing", () => {
@@ -69,10 +76,7 @@ Deno.test("resolveAiWizardConfig disables AI when OPENAI_API_KEY is missing", ()
   assertEquals(decision.aiNarrative, "off");
   assertEquals(decision.aiModel, "gpt-4o-mini");
   assertEquals(decision.shouldPromptForModel, false);
-  assertEquals(
-    decision.statusMessage,
-    "Step 5/6 - AI is disabled for this run (OPENAI_API_KEY not set).",
-  );
+  assertEquals(decision.disabledReason, "OPENAI_API_KEY not set");
 });
 
 Deno.test("resolveAiWizardConfig prompts for model when OPENAI_API_KEY is present", () => {
@@ -86,5 +90,5 @@ Deno.test("resolveAiWizardConfig prompts for model when OPENAI_API_KEY is presen
   assertEquals(decision.aiNarrative, "auto");
   assertEquals(decision.aiModel, "gpt-4o-mini");
   assertEquals(decision.shouldPromptForModel, true);
-  assertEquals(decision.statusMessage, "Step 5/6 - Configure AI model");
+  assertEquals(decision.disabledReason, undefined);
 });

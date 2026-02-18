@@ -5,6 +5,7 @@ import {
 } from "./config/config.ts";
 import { getDateRange } from "./config/dates.ts";
 import {
+  describeProviderField,
   getProviderReadiness,
   providerLabel as readinessProviderLabel,
 } from "./config/provider_readiness.ts";
@@ -28,7 +29,9 @@ const formatMissingProviders = (
     const missing = missingByProvider[provider] ?? [];
     if (!missing.length) continue;
     chunks.push(
-      `${readinessProviderLabel(provider)} missing ${missing.join(", ")}`,
+      `${readinessProviderLabel(provider)} missing ${
+        missing.map(describeProviderField).join(", ")
+      }`,
     );
   }
   return chunks.join("; ");
@@ -40,15 +43,6 @@ const runFetch = async (config: Config) => {
   const skippedProviders = readiness.selectedProviders.filter((provider) =>
     !readiness.runnableProviders.includes(provider)
   );
-  if (skippedProviders.length > 0) {
-    console.log("\nSkipping providers with incomplete credentials:");
-    for (const provider of skippedProviders) {
-      const missing = readiness.missingByProvider[provider] ?? [];
-      console.log(
-        `- ${readinessProviderLabel(provider)}: missing ${missing.join(", ")}`,
-      );
-    }
-  }
 
   if (readiness.runnableProviders.length === 0) {
     promptExit(
@@ -71,16 +65,10 @@ const runFetch = async (config: Config) => {
     }
 
     try {
+      console.log(`\n[${providerLabel(adapter.name)}] Fetching issues...`);
       const issues = await adapter.fetchIssues(config, { startDate, endDate });
       const providerTitle = providerLabel(adapter.name);
-
-      if (!issues.length) {
-        console.log(
-          `\nNo ${providerTitle} issues found for the specified criteria.`,
-        );
-      } else {
-        console.log(`\nFetched ${issues.length} ${providerTitle} issues.`);
-      }
+      console.log(`[${providerTitle}] Completed: ${issues.length} issues.`);
 
       runResults.push({
         provider: adapter.name,
@@ -151,20 +139,17 @@ const runFetch = async (config: Config) => {
 
   console.log("\nRun Summary:");
   for (const result of runResults) {
+    const providerTitle = readinessProviderLabel(result.provider);
     const suffix = result.status === "success"
       ? `${result.issueCount} issues`
       : result.error ?? "unknown error";
-    console.log(`- ${result.provider}: ${result.status} (${suffix})`);
+    console.log(`- ${providerTitle}: ${result.status} (${suffix})`);
   }
 
-  if (skippedProviders.length > 0) {
-    console.log("\nSkipped providers:");
-    for (const provider of skippedProviders) {
-      const missing = readiness.missingByProvider[provider] ?? [];
-      console.log(
-        `- ${provider}: missing ${missing.join(", ")}`,
-      );
-    }
+  for (const provider of skippedProviders) {
+    console.log(
+      `- ${readinessProviderLabel(provider)}: skipped`,
+    );
   }
 
   promptExit(

@@ -35,15 +35,12 @@ const getUserID = async (
   gitlabURL: string,
   headers: Record<string, string>,
 ): Promise<number> => {
-  console.log("\nFetching user information...");
-
   const data = await requestJsonWithRetry<{ id: number }>(
     `${gitlabURL}/api/v4/user`,
     { headers },
     "GitLab user",
   );
 
-  console.log(`User ID fetched: ${data.id}`);
   return data.id;
 };
 
@@ -52,13 +49,10 @@ const getProjects = async (
   headers: Record<string, string>,
   userID: number,
 ) => {
-  console.log("\nFetching projects...");
-
   const projectsURL =
     `${gitlabURL}/api/v4/users/${userID}/contributed_projects`;
   const projects = await getPaginatedResults(projectsURL, headers);
 
-  console.log(`Fetched projects: ${projects.length}`);
   return projects;
 };
 
@@ -123,8 +117,6 @@ const getIssues = async (
   endDate: string,
   fetchMode: string,
 ) => {
-  console.log("\nFetching issues...");
-
   const issuesToProcess = new Map<number, GitlabIssue>();
 
   for (const project of projects) {
@@ -140,7 +132,6 @@ const getIssues = async (
     addUniqueIssues(issuesToProcess, projectIssues);
   }
 
-  console.log(`Total issues fetched for processing: ${issuesToProcess.size}`);
   return issuesToProcess;
 };
 
@@ -161,8 +152,6 @@ const filterNotes = async (
   userID: number,
   fetchMode: string,
 ) => {
-  console.log("\nFiltering issues based on notes and fetch mode...");
-
   const includeAllFetchedIssues = fetchMode === "my_issues";
   if (!includeAllFetchedIssues && fetchMode !== "all_contributions") {
     throw new Error(`Invalid fetch mode: ${fetchMode}`);
@@ -184,7 +173,6 @@ const filterNotes = async (
     }
   }
 
-  console.log(`Total issues after filtering: ${finalIssues.length}`);
   return finalIssues;
 };
 

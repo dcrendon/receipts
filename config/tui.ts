@@ -7,6 +7,7 @@ import {
   REPORT_PROFILES,
 } from "./report_options.ts";
 import {
+  describeProviderField,
   getMissingFieldsForProvider,
   getProviderReadiness,
   providerLabel,
@@ -20,6 +21,7 @@ const FIXED_PROVIDER: Config["provider"] = "all";
 const FIXED_REPORT_FORMAT: Config["reportFormat"] = "html";
 const FIXED_AI_NARRATIVE: Config["aiNarrative"] = "auto";
 const DEFAULT_AI_MODEL = "gpt-4o-mini";
+const WIZARD_TOTAL_STEPS = 5;
 
 const isNonEmpty = (value: string | null): value is string =>
   Boolean(value && value.trim().length > 0);
@@ -28,7 +30,7 @@ interface AiWizardConfigDecision {
   aiNarrative: Config["aiNarrative"];
   aiModel: string;
   shouldPromptForModel: boolean;
-  statusMessage: string;
+  disabledReason?: string;
 }
 
 export const resolveAiWizardConfig = (
@@ -41,8 +43,7 @@ export const resolveAiWizardConfig = (
       aiNarrative: "off",
       aiModel: defaultModel,
       shouldPromptForModel: false,
-      statusMessage:
-        "Step 5/6 - AI is disabled for this run (OPENAI_API_KEY not set).",
+      disabledReason: "OPENAI_API_KEY not set",
     };
   }
 
@@ -50,7 +51,6 @@ export const resolveAiWizardConfig = (
     aiNarrative: FIXED_AI_NARRATIVE,
     aiModel: defaultModel,
     shouldPromptForModel: true,
-    statusMessage: "Step 5/6 - Configure AI model",
   };
 };
 
@@ -90,10 +90,10 @@ const askChoice = <T extends readonly string[]>(
 
 const askBoolean = (question: string, defaultValue: boolean): boolean => {
   while (true) {
-    const raw = prompt(
-      `${question} [y/n] (default: ${defaultValue ? "y" : "n"})`,
-    );
-    const normalized = (raw ?? (defaultValue ? "y" : "n")).trim().toLowerCase();
+    const defaultHint = defaultValue ? "[Y/n]" : "[y/N]";
+    const raw = prompt(`${question} ${defaultHint}`);
+    const normalized = (raw ?? "").trim().toLowerCase();
+    if (!normalized) return defaultValue;
     if (["y", "yes"].includes(normalized)) return true;
     if (["n", "no"].includes(normalized)) return false;
     console.log("Invalid value. Use y or n.");
@@ -126,32 +126,27 @@ const askRequiredSecret = (question: string, defaultValue?: string): string => {
   }
 };
 
-const describeMissingField = (field: keyof Config): string => {
-  if (field === "gitlabPAT") return "GitLab PAT";
-  if (field === "gitlabURL") return "GitLab URL";
-  if (field === "jiraPAT") return "Jira PAT";
-  if (field === "jiraURL") return "Jira URL";
-  if (field === "jiraUsername") return "Jira username";
-  if (field === "githubPAT") return "GitHub PAT";
-  if (field === "githubURL") return "GitHub URL";
-  if (field === "githubUsername") return "GitHub username";
-  return String(field);
-};
+const formatWizardStep = (step: number, label: string): string =>
+  `Step ${step}/${WIZARD_TOTAL_STEPS} - ${label}`;
+
+const formatMissingFields = (fields: (keyof Config)[]): string =>
+  fields.map(describeProviderField).join(", ");
 
 export const formatProviderReadinessSummary = (config: Config): string[] => {
   const readiness = getProviderReadiness(config);
-  const lines = ["\nProvider readiness:"];
+  const lines = ["Provider readiness:"];
+  const longestLabel = readiness.selectedProviders.reduce(
+    (max, provider) => Math.max(max, providerLabel(provider).length),
+    0,
+  );
 
   for (const provider of readiness.selectedProviders) {
+    const label = providerLabel(provider).padEnd(longestLabel);
     const missing = readiness.missingByProvider[provider] ?? [];
     if (missing.length === 0) {
-      lines.push(`- ${providerLabel(provider)}: ready`);
+      lines.push(`- ${label} | ready`);
     } else {
-      lines.push(
-        `- ${providerLabel(provider)}: missing ${
-          missing.map(describeMissingField).join(", ")
-        }`,
-      );
+      lines.push(`- ${label} | skipping`);
     }
   }
 
@@ -228,14 +223,13 @@ export const runConfigWizard = async (
 ): Promise<Config> => {
   console.log("\nIssue Fetcher Wizard");
   console.log(
-    "Configure this run. Missing provider credentials can be added now.\n",
+    "Configure this run. Missing provider credentials can be added now.",
   );
 
   const provider = FIXED_PROVIDER;
-  console.log("Step 1/6 - Provider is fixed to: all");
 
   const timeRange = askChoice(
-    "Step 2/6 - Select time range",
+    formatWizardStep(1, "Select time range"),
     TIME_RANGES,
     normalizeChoice(seed.timeRange, TIME_RANGES) ?? "week",
   );
@@ -254,23 +248,33 @@ export const runConfigWizard = async (
   }
 
   const fetchMode = askChoice(
-    "Step 3/6 - Select fetch mode",
+    formatWizardStep(2, "Select fetch mode"),
     FETCH_MODES,
     normalizeChoice(seed.fetchMode, FETCH_MODES) ?? "all_contributions",
   );
 
   const reportProfile = askChoice(
-    "Step 4/6 - Select report profile",
+    formatWizardStep(3, "Select report profile"),
     REPORT_PROFILES,
     seed.reportProfile ?? "activity_retro",
   );
   const reportFormat = FIXED_REPORT_FORMAT;
   const aiConfig = resolveAiWizardConfig(seed);
-  console.log(aiConfig.statusMessage);
   const aiNarrative = aiConfig.aiNarrative;
-  const aiModel = aiConfig.shouldPromptForModel
-    ? askRequiredText("AI model", aiConfig.aiModel)
-    : aiConfig.aiModel;
+  let aiModel = aiConfig.aiModel;
+  if (aiConfig.shouldPromptForModel) {
+    aiModel = askRequiredText(
+      formatWizardStep(4, "Set AI model"),
+      aiConfig.aiModel,
+    );
+  } else {
+    console.log(
+      formatWizardStep(
+        4,
+        `AI model is disabled for this run (${aiConfig.disabledReason}).`,
+      ),
+    );
+  }
 
   const outFile = provider === "all"
     ? `${OUTPUT_DIR}/issues.json`
@@ -293,9 +297,7 @@ export const runConfigWizard = async (
     aiModel,
   };
 
-  for (const line of formatProviderReadinessSummary(config)) {
-    console.log(line);
-  }
+  console.log(formatWizardStep(5, "Review provider credentials"));
 
   const targetProviders = provider === "all"
     ? (["gitlab", "jira", "github"] as ProviderName[])
@@ -306,7 +308,9 @@ export const runConfigWizard = async (
     if (!missing.length) continue;
 
     const shouldCapture = askBoolean(
-      `Add missing ${providerLabel(target)} credentials now?`,
+      `${providerLabel(target)} is missing ${
+        formatMissingFields(missing)
+      }. Add now?`,
       true,
     );
     if (shouldCapture) {
@@ -314,6 +318,7 @@ export const runConfigWizard = async (
     }
   }
 
+  console.log("");
   for (const line of formatProviderReadinessSummary(config)) {
     console.log(line);
   }

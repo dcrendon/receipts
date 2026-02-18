@@ -73,3 +73,15 @@ export const providerLabel = (provider: ProviderName): string => {
   if (provider === "jira") return "Jira";
   return "GitHub";
 };
+
+export const describeProviderField = (field: keyof Config): string => {
+  if (field === "gitlabPAT") return "GitLab PAT";
+  if (field === "gitlabURL") return "GitLab URL";
+  if (field === "jiraPAT") return "Jira PAT";
+  if (field === "jiraURL") return "Jira URL";
+  if (field === "jiraUsername") return "Jira username";
+  if (field === "githubPAT") return "GitHub PAT";
+  if (field === "githubURL") return "GitHub URL";
+  if (field === "githubUsername") return "GitHub username";
+  return String(field);
+};
