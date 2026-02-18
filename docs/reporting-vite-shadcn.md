@@ -28,13 +28,11 @@ falling back to a different HTML renderer.
 ## Renderer workspace layout
 
 - `reporting/shadcn-renderer/package.json`
-  - Vite scripts (`build`, `build:client`, `build:server`, `render`).
+  - CLI-facing scripts (`build`, `build:server`, `render`).
 - `reporting/shadcn-renderer/vite.config.ts`
-  - Vite React plugin and Tailwind Vite plugin.
+  - Vite SSR configuration for the server renderer bundle.
 - `reporting/shadcn-renderer/src/entry-server.tsx`
   - SSR entry; reads JSON from stdin and emits full HTML document.
-- `reporting/shadcn-renderer/src/components/ui/*`
-  - shadcn component implementations used by report markup.
 
 ## Local development notes
 

@@ -3,10 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build:client": "vite build",
     "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
-    "build": "npm run build:client && npm run build:server",
+    "build": "npm run build:server",
     "render": "node dist/server/entry-server.js",
     "shadcn:init": "shadcn init -y",
     "shadcn:add": "shadcn add card badge table separator --yes"
