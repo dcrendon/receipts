@@ -12,7 +12,7 @@ Deno.test("jiraIssues returns filtered contribution issues with comments", async
   const originalFetch = globalThis.fetch;
 
   try {
-    globalThis.fetch = (async (input: string | URL | Request) => {
+    globalThis.fetch = ((input: string | URL | Request) => {
       const url = typeof input === "string"
         ? input
         : input instanceof URL
@@ -20,7 +20,7 @@ Deno.test("jiraIssues returns filtered contribution issues with comments", async
         : input.url;
 
       if (url.includes("/rest/api/2/search")) {
-        return makeJsonResponse({
+        return Promise.resolve(makeJsonResponse({
           total: 2,
           issues: [
             {
@@ -38,28 +38,28 @@ Deno.test("jiraIssues returns filtered contribution issues with comments", async
               },
             },
           ],
-        });
+        }));
       }
 
       if (url.includes("/rest/api/2/issue/ABC-1/comment")) {
-        return makeJsonResponse({
+        return Promise.resolve(makeJsonResponse({
           comments: [{
             author: { displayName: "my.user" },
             body: "I touched this",
           }],
-        });
+        }));
       }
 
       if (url.includes("/rest/api/2/issue/ABC-2/comment")) {
-        return makeJsonResponse({
+        return Promise.resolve(makeJsonResponse({
           comments: [{
             author: { displayName: "someone.else" },
             body: "other",
           }],
-        });
+        }));
       }
 
-      return makeJsonResponse({}, 404);
+      return Promise.resolve(makeJsonResponse({}, 404));
     }) as typeof fetch;
 
     const issues = await jiraIssues(
@@ -83,7 +83,7 @@ Deno.test("jiraIssues throws when search request fails", async () => {
   const originalFetch = globalThis.fetch;
 
   try {
-    globalThis.fetch = (async (input: string | URL | Request) => {
+    globalThis.fetch = ((input: string | URL | Request) => {
       const url = typeof input === "string"
         ? input
         : input instanceof URL
@@ -91,10 +91,10 @@ Deno.test("jiraIssues throws when search request fails", async () => {
         : input.url;
 
       if (url.includes("/rest/api/2/search")) {
-        return makeJsonResponse({ message: "error" }, 500);
+        return Promise.resolve(makeJsonResponse({ message: "error" }, 500));
       }
 
-      return makeJsonResponse({}, 404);
+      return Promise.resolve(makeJsonResponse({}, 404));
     }) as typeof fetch;
 
     await assertRejects(

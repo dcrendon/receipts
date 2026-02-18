@@ -1,4 +1,8 @@
-import { assertEquals, assertStringIncludes, assertNotEquals } from "@std/assert";
+import {
+  assertEquals,
+  assertNotEquals,
+  assertStringIncludes,
+} from "@std/assert";
 import {
   buildReportSummary,
   buildRunReport,

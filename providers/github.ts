@@ -1,5 +1,5 @@
 import { requestJsonWithRetry } from "./http_client.ts";
-import { GitHubIssue } from "../shared/types.ts";
+import { GitHubComment, GitHubIssue, UnknownRecord } from "../shared/types.ts";
 
 interface GitHubSearchResponse {
   total_count?: number;
@@ -55,8 +55,8 @@ const getPaginatedSearchResults = async (
 const getIssueComments = async (
   headers: Record<string, string>,
   commentsURL: string,
-): Promise<any[]> => {
-  const allComments: any[] = [];
+): Promise<GitHubComment[]> => {
+  const allComments: GitHubComment[] = [];
   const perPage = 100;
 
   for (let page = 1;; page++) {
@@ -64,7 +64,7 @@ const getIssueComments = async (
     url.searchParams.set("page", String(page));
     url.searchParams.set("per_page", String(perPage));
 
-    const comments = await requestJsonWithRetry<any[]>(
+    const comments = await requestJsonWithRetry<GitHubComment[]>(
       url.toString(),
       { headers, method: "GET" },
       "GitHub comments",
@@ -80,7 +80,7 @@ const getIssueComments = async (
   return allComments;
 };
 
-const removeNulls = (obj: any): any => {
+const removeNulls = (obj: unknown): unknown => {
   if (Array.isArray(obj)) {
     return obj
       .map((v) => removeNulls(v))
@@ -88,9 +88,9 @@ const removeNulls = (obj: any): any => {
   }
 
   if (typeof obj === "object" && obj !== null) {
-    const newObj: any = {};
-    for (const key in obj) {
-      const val = removeNulls(obj[key]);
+    const newObj: UnknownRecord = {};
+    for (const [key, currentValue] of Object.entries(obj as UnknownRecord)) {
+      const val = removeNulls(currentValue);
       if (val !== null && val !== undefined) {
         newObj[key] = val;
       }
@@ -189,5 +189,5 @@ export const githubIssues = async (
     issues.map((issue) => enrichIssue(issue, headers)),
   );
 
-  return removeNulls(enriched);
+  return removeNulls(enriched) as GitHubIssue[];
 };

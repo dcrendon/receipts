@@ -1,13 +1,14 @@
 import { requestJsonWithRetry } from "./http_client.ts";
+import { JiraComment, JiraIssue, UnknownRecord } from "../shared/types.ts";
 
 const getPaginatedResults = async (
   jiraURL: string,
   headers: Record<string, string>,
   jql: string,
-): Promise<any[]> => {
+): Promise<JiraIssue[]> => {
   let startAt = 0;
   const maxResults = 100;
-  const allIssues: any[] = [];
+  const allIssues: JiraIssue[] = [];
 
   const baseURL = jiraURL.endsWith("/") ? jiraURL : `${jiraURL}/`;
   const searchURL = new URL("rest/api/2/search", baseURL);
@@ -17,7 +18,10 @@ const getPaginatedResults = async (
     searchURL.searchParams.set("startAt", String(startAt));
     searchURL.searchParams.set("maxResults", String(maxResults));
 
-    const data = await requestJsonWithRetry<{ issues?: any[]; total?: number }>(
+    const data = await requestJsonWithRetry<{
+      issues?: JiraIssue[];
+      total?: number;
+    }>(
       searchURL.toString(),
       {
         headers,
@@ -46,13 +50,13 @@ const getIssueComments = async (
   jiraURL: string,
   headers: Record<string, string>,
   issueKey: string,
-): Promise<any[]> => {
+): Promise<JiraComment[]> => {
   const baseURL = jiraURL.endsWith("/") ? jiraURL : `${jiraURL}/`;
   const commentsURL = new URL(`rest/api/2/issue/${issueKey}/comment`, baseURL);
   commentsURL.searchParams.set("maxResults", "100");
 
   try {
-    const data = await requestJsonWithRetry<{ comments?: any[] }>(
+    const data = await requestJsonWithRetry<{ comments?: JiraComment[] }>(
       commentsURL.toString(),
       {
         headers,
@@ -91,19 +95,20 @@ const buildJql = (
   throw new Error(`Invalid fetch mode: ${fetchMode}`);
 };
 
-const matchesUser = (user: any, username: string): boolean => {
-  if (!user) return false;
+const matchesUser = (user: unknown, username: string): boolean => {
+  if (!user || typeof user !== "object") return false;
+  const asRecord = user as UnknownRecord;
   return (
-    user.name === username ||
-    user.accountId === username ||
-    user.displayName === username ||
-    user.emailAddress === username
+    asRecord.name === username ||
+    asRecord.accountId === username ||
+    asRecord.displayName === username ||
+    asRecord.emailAddress === username
   );
 };
 
 const isContributor = (
-  issue: any,
-  comments: any[],
+  issue: JiraIssue,
+  comments: JiraComment[],
   username: string,
 ): boolean => {
   if (matchesUser(issue.fields?.assignee, username)) return true;
@@ -111,7 +116,7 @@ const isContributor = (
   return comments.some((comment) => matchesUser(comment.author, username));
 };
 
-const removeNulls = (obj: any): any => {
+const removeNulls = (obj: unknown): unknown => {
   if (Array.isArray(obj)) {
     return obj
       .map((v) => removeNulls(v))
@@ -119,10 +124,10 @@ const removeNulls = (obj: any): any => {
   }
 
   if (typeof obj === "object" && obj !== null) {
-    const newObj: any = {};
+    const newObj: UnknownRecord = {};
 
-    for (const key in obj) {
-      const val = removeNulls(obj[key]);
+    for (const [key, currentValue] of Object.entries(obj as UnknownRecord)) {
+      const val = removeNulls(currentValue);
       if (val !== null && val !== undefined) {
         newObj[key] = val;
       }
@@ -149,7 +154,7 @@ export const jiraIssues = async (
   if (!issues.length) return [];
 
   const includeAllFetchedIssues = fetchMode === "my_issues";
-  const finalIssues: any[] = [];
+  const finalIssues: JiraIssue[] = [];
 
   for (const issue of issues) {
     const comments = await getIssueComments(jiraURL, headers, issue.key);
@@ -160,5 +165,5 @@ export const jiraIssues = async (
     }
   }
 
-  return removeNulls(finalIssues);
+  return removeNulls(finalIssues) as JiraIssue[];
 };

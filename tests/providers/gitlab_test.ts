@@ -12,7 +12,7 @@ Deno.test("gitlabIssues returns contributor issues for all_contributions mode", 
   const originalFetch = globalThis.fetch;
 
   try {
-    globalThis.fetch = (async (input: string | URL | Request) => {
+    globalThis.fetch = ((input: string | URL | Request) => {
       const url = typeof input === "string"
         ? input
         : input instanceof URL
@@ -22,21 +22,21 @@ Deno.test("gitlabIssues returns contributor issues for all_contributions mode", 
       const page = parsed.searchParams.get("page");
 
       if (url.endsWith("/api/v4/user")) {
-        return makeJsonResponse({ id: 7, username: "me" });
+        return Promise.resolve(makeJsonResponse({ id: 7, username: "me" }));
       }
 
       if (
         parsed.pathname === "/api/v4/users/7/contributed_projects" &&
         page === "1"
       ) {
-        return makeJsonResponse([{ id: 101 }]);
+        return Promise.resolve(makeJsonResponse([{ id: 101 }]));
       }
 
       if (
         parsed.pathname === "/api/v4/users/7/contributed_projects" &&
         page === "2"
       ) {
-        return makeJsonResponse([]);
+        return Promise.resolve(makeJsonResponse([]));
       }
 
       if (
@@ -44,7 +44,7 @@ Deno.test("gitlabIssues returns contributor issues for all_contributions mode", 
         url.includes("updated_after") &&
         page === "1"
       ) {
-        return makeJsonResponse([
+        return Promise.resolve(makeJsonResponse([
           {
             id: 5001,
             iid: 12,
@@ -52,7 +52,7 @@ Deno.test("gitlabIssues returns contributor issues for all_contributions mode", 
             author: { id: 99, username: "other" },
             assignees: [],
           },
-        ]);
+        ]));
       }
 
       if (
@@ -60,26 +60,26 @@ Deno.test("gitlabIssues returns contributor issues for all_contributions mode", 
         url.includes("updated_after") &&
         page === "2"
       ) {
-        return makeJsonResponse([]);
+        return Promise.resolve(makeJsonResponse([]));
       }
 
       if (
         parsed.pathname === "/api/v4/projects/101/issues/12/notes" &&
         page === "1"
       ) {
-        return makeJsonResponse([
+        return Promise.resolve(makeJsonResponse([
           { id: 1, author: { id: 7, username: "me" }, body: "contribution" },
-        ]);
+        ]));
       }
 
       if (
         parsed.pathname === "/api/v4/projects/101/issues/12/notes" &&
         page === "2"
       ) {
-        return makeJsonResponse([]);
+        return Promise.resolve(makeJsonResponse([]));
       }
 
-      return makeJsonResponse({}, 404);
+      return Promise.resolve(makeJsonResponse({}, 404));
     }) as typeof fetch;
 
     const issues = await gitlabIssues(

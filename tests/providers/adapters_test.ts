@@ -74,9 +74,9 @@ Deno.test("GitHubAdapter canRun/getOutFile follow provider selection and readine
 Deno.test("GitLabAdapter uses live fetch", async () => {
   let usedLive = false;
   const adapter = new GitLabAdapter({
-    fetchLive: async () => {
+    fetchLive: () => {
       usedLive = true;
-      return [];
+      return Promise.resolve([]);
     },
   });
 
@@ -99,9 +99,9 @@ Deno.test("GitLabAdapter uses live fetch", async () => {
 Deno.test("JiraAdapter uses live fetch", async () => {
   let usedLive = false;
   const adapter = new JiraAdapter({
-    fetchLive: async () => {
+    fetchLive: () => {
       usedLive = true;
-      return [];
+      return Promise.resolve([]);
     },
   });
 
@@ -125,9 +125,9 @@ Deno.test("JiraAdapter uses live fetch", async () => {
 Deno.test("GitHubAdapter uses live fetch", async () => {
   let usedLive = false;
   const adapter = new GitHubAdapter({
-    fetchLive: async () => {
+    fetchLive: () => {
       usedLive = true;
-      return [];
+      return Promise.resolve([]);
     },
   });
 

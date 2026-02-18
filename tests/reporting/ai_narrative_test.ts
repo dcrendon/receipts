@@ -142,13 +142,13 @@ Deno.test("applyAiNarrativeRewrite performs sequential per-task rewrites with ex
       "AI point two",
     ];
 
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = ((_input, init) => {
       const meta = parseCallMeta(init);
       callOrder.push(`${meta.taskKind}:${meta.taskIndex ?? "null"}`);
       assertEquals(meta.hasResponseFormat, false);
 
       const current = outputs[callOrder.length - 1];
-      return aiResponse(current);
+      return Promise.resolve(aiResponse(current));
     }) as typeof fetch;
 
     const result = await applyAiNarrativeRewrite({
@@ -188,17 +188,21 @@ Deno.test("applyAiNarrativeRewrite falls back per-item in auto mode when one tas
   const callOrder: string[] = [];
 
   try {
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = ((_input, init) => {
       const meta = parseCallMeta(init);
       callOrder.push(`${meta.taskKind}:${meta.taskIndex ?? "null"}`);
 
-      if (callOrder.length === 1) return aiResponse("AI lead");
-      if (callOrder.length === 2) return aiResponse("AI highlight one");
-      if (callOrder.length === 3) {
-        return aiErrorResponse(500, "highlight failure");
+      if (callOrder.length === 1) return Promise.resolve(aiResponse("AI lead"));
+      if (callOrder.length === 2) {
+        return Promise.resolve(aiResponse("AI highlight one"));
       }
-      if (callOrder.length === 4) return aiResponse("AI point one");
-      return aiResponse("AI point two");
+      if (callOrder.length === 3) {
+        return Promise.resolve(aiErrorResponse(500, "highlight failure"));
+      }
+      if (callOrder.length === 4) {
+        return Promise.resolve(aiResponse("AI point one"));
+      }
+      return Promise.resolve(aiResponse("AI point two"));
     }) as typeof fetch;
 
     const result = await applyAiNarrativeRewrite({
@@ -234,13 +238,15 @@ Deno.test("applyAiNarrativeRewrite fails fast in on mode with task-context error
   const callOrder: string[] = [];
 
   try {
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = ((_input, init) => {
       const meta = parseCallMeta(init);
       callOrder.push(`${meta.taskKind}:${meta.taskIndex ?? "null"}`);
 
-      if (callOrder.length === 1) return aiResponse("AI lead");
-      if (callOrder.length === 2) return aiResponse("AI highlight one");
-      return aiErrorResponse(429, "quota exceeded");
+      if (callOrder.length === 1) return Promise.resolve(aiResponse("AI lead"));
+      if (callOrder.length === 2) {
+        return Promise.resolve(aiResponse("AI highlight one"));
+      }
+      return Promise.resolve(aiErrorResponse(429, "quota exceeded"));
     }) as typeof fetch;
 
     await assertRejects(
@@ -264,23 +270,23 @@ Deno.test("applyAiNarrativeRewrite sanitizes wrapped output and rejects empty re
   const originalFetch = globalThis.fetch;
 
   try {
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = ((_input, init) => {
       const meta = parseCallMeta(init);
       const key = `${meta.taskKind}:${meta.taskIndex ?? "null"}`;
 
       if (key === "headline:null") {
-        return aiResponse("```text\nAI lead wrapped\n```");
+        return Promise.resolve(aiResponse("```text\nAI lead wrapped\n```"));
       }
       if (key === "highlight:0") {
-        return aiResponse('"AI highlight one"');
+        return Promise.resolve(aiResponse('"AI highlight one"'));
       }
       if (key === "highlight:1") {
-        return aiResponse("   \n   ");
+        return Promise.resolve(aiResponse("   \n   "));
       }
       if (key === "weeklyPoint:0") {
-        return aiResponse("- AI point one");
+        return Promise.resolve(aiResponse("- AI point one"));
       }
-      return aiResponse("`AI point two`");
+      return Promise.resolve(aiResponse("`AI point two`"));
     }) as typeof fetch;
 
     const result = await applyAiNarrativeRewrite({
@@ -308,13 +314,13 @@ Deno.test("applyAiNarrativeRewrite includes task information in prompt payload",
   const originalFetch = globalThis.fetch;
 
   try {
-    globalThis.fetch = (async (_input, init) => {
+    globalThis.fetch = ((_input, init) => {
       const meta = parseCallMeta(init);
       assertStringIncludes(
         ["headline", "highlight", "weeklyPoint"].join(","),
         meta.taskKind,
       );
-      return aiResponse("same text");
+      return Promise.resolve(aiResponse("same text"));
     }) as typeof fetch;
 
     await applyAiNarrativeRewrite({

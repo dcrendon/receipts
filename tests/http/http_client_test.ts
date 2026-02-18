@@ -23,15 +23,18 @@ Deno.test("requestJsonWithRetry retries transient failures then succeeds", async
     { method: "GET" },
     "test",
     {
-      fetchFn: async () => {
+      fetchFn: () => {
         callCount++;
         if (callCount < 3) {
-          return jsonResponse({ message: "fail" }, { status: 500 });
+          return Promise.resolve(
+            jsonResponse({ message: "fail" }, { status: 500 }),
+          );
         }
-        return jsonResponse({ ok: true });
+        return Promise.resolve(jsonResponse({ ok: true }));
       },
-      sleepFn: async (ms) => {
+      sleepFn: (ms) => {
         sleepCalls.push(ms);
+        return Promise.resolve();
       },
       baseDelayMs: 25,
       maxRetries: 3,
@@ -52,18 +55,21 @@ Deno.test("requestJsonWithRetry respects Retry-After for rate limits", async () 
     { method: "GET" },
     "rate-limited-test",
     {
-      fetchFn: async () => {
+      fetchFn: () => {
         callCount++;
         if (callCount === 1) {
-          return jsonResponse(
-            { message: "slow down" },
-            { status: 429, headers: { "retry-after": "2" } },
+          return Promise.resolve(
+            jsonResponse(
+              { message: "slow down" },
+              { status: 429, headers: { "retry-after": "2" } },
+            ),
           );
         }
-        return jsonResponse({ ok: true });
+        return Promise.resolve(jsonResponse({ ok: true }));
       },
-      sleepFn: async (ms) => {
+      sleepFn: (ms) => {
         sleepCalls.push(ms);
+        return Promise.resolve();
       },
       baseDelayMs: 25,
       maxRetries: 3,
@@ -86,12 +92,15 @@ Deno.test("requestJsonWithRetry throws after retries are exhausted", async () =>
         { method: "GET" },
         "failure-test",
         {
-          fetchFn: async () => {
+          fetchFn: () => {
             callCount++;
-            return jsonResponse({ message: "always fail" }, { status: 500 });
+            return Promise.resolve(
+              jsonResponse({ message: "always fail" }, { status: 500 }),
+            );
           },
-          sleepFn: async (ms) => {
+          sleepFn: (ms) => {
             sleepCalls.push(ms);
+            return Promise.resolve();
           },
           baseDelayMs: 10,
           maxRetries: 2,

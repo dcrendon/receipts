@@ -1,12 +1,17 @@
-import { GitlabIssue } from "../shared/types.ts";
+import { GitlabIssue, GitlabNote } from "../shared/types.ts";
 import { requestJsonWithRetry } from "./http_client.ts";
 
-const getPaginatedResults = async (
+interface GitLabProject {
+  id: number;
+  [key: string]: unknown;
+}
+
+const getPaginatedResults = async <T>(
   gitlabURL: string,
   headers: Record<string, string>,
   params: Record<string, string | number> = {},
-): Promise<any[]> => {
-  const allResults: any[] = [];
+): Promise<T[]> => {
+  const allResults: T[] = [];
   const perPage = 100;
 
   for (let page = 1;; page++) {
@@ -18,7 +23,7 @@ const getPaginatedResults = async (
     );
     url.search = query.toString();
 
-    const data = await requestJsonWithRetry<any[]>(
+    const data = await requestJsonWithRetry<T[]>(
       url.toString(),
       { headers },
       "GitLab",
@@ -48,10 +53,13 @@ const getProjects = async (
   gitlabURL: string,
   headers: Record<string, string>,
   userID: number,
-) => {
+): Promise<GitLabProject[]> => {
   const projectsURL =
     `${gitlabURL}/api/v4/users/${userID}/contributed_projects`;
-  const projects = await getPaginatedResults(projectsURL, headers);
+  const projects = await getPaginatedResults<GitLabProject>(
+    projectsURL,
+    headers,
+  );
 
   return projects;
 };
@@ -84,11 +92,11 @@ const fetchProjectIssues = async (
     };
 
     const [assignedIssues, createdIssues] = await Promise.all([
-      getPaginatedResults(projectURL, headers, {
+      getPaginatedResults<GitlabIssue>(projectURL, headers, {
         ...baseParams,
         assignee_id: userID,
       }),
-      getPaginatedResults(projectURL, headers, {
+      getPaginatedResults<GitlabIssue>(projectURL, headers, {
         ...baseParams,
         author_id: userID,
       }),
@@ -98,7 +106,7 @@ const fetchProjectIssues = async (
   }
 
   if (fetchMode === "all_contributions") {
-    return await getPaginatedResults(projectURL, headers, {
+    return await getPaginatedResults<GitlabIssue>(projectURL, headers, {
       scope: "all",
       updated_after: startDate,
       updated_before: endDate,
@@ -109,7 +117,7 @@ const fetchProjectIssues = async (
 };
 
 const getIssues = async (
-  projects: any[],
+  projects: GitLabProject[],
   gitlabURL: string,
   headers: Record<string, string>,
   userID: number,
@@ -137,7 +145,7 @@ const getIssues = async (
 
 const isContributor = (
   issue: GitlabIssue,
-  notes: any[],
+  notes: GitlabNote[],
   userID: number,
 ): boolean => {
   if (issue.author?.id === userID) return true;
@@ -162,7 +170,7 @@ const filterNotes = async (
   for (const issue of issues.values()) {
     const notesURL =
       `${gitlabURL}/api/v4/projects/${issue.project_id}/issues/${issue.iid}/notes`;
-    const notes = await getPaginatedResults(notesURL, headers, {
+    const notes = await getPaginatedResults<GitlabNote>(notesURL, headers, {
       sort: "asc",
       order_by: "created_at",
     });

@@ -1,6 +1,7 @@
 export type ReportProfile = "brief" | "activity_retro" | "showcase";
 export type ReportFormat = "markdown" | "html" | "both";
 export type AiNarrativeMode = "auto" | "on" | "off";
+export type UnknownRecord = Record<string, unknown>;
 
 export interface Config {
   gitlabPAT?: string;
@@ -30,6 +31,14 @@ interface GitlabUser {
   id: number;
   username?: string;
   name?: string;
+  [key: string]: unknown;
+}
+
+export interface GitlabNote {
+  id?: number;
+  author?: GitlabUser;
+  body?: string;
+  [key: string]: unknown;
 }
 
 export interface GitlabIssue {
@@ -40,8 +49,23 @@ export interface GitlabIssue {
   assignees?: GitlabUser[];
   created_at: string;
   updated_at: string;
-  notes?: any[];
-  [key: string]: any;
+  notes?: GitlabNote[];
+  [key: string]: unknown;
+}
+
+interface JiraUser {
+  accountId?: string;
+  displayName?: string;
+  name?: string;
+  emailAddress?: string;
+  [key: string]: unknown;
+}
+
+export interface JiraComment {
+  id?: string;
+  author?: JiraUser;
+  body?: unknown;
+  [key: string]: unknown;
 }
 
 export interface JiraIssue {
@@ -52,20 +76,31 @@ export interface JiraIssue {
     description: string;
     created: string;
     updated: string;
-    assignee?: {
-      accountId: string;
-      displayName: string;
-    };
-    reporter?: {
-      accountId: string;
-      displayName: string;
-    };
+    assignee?: JiraUser;
+    reporter?: JiraUser;
     status: {
       name: string;
     };
     [key: string]: unknown;
   };
-  notes?: any[];
+  notes?: JiraComment[];
+  [key: string]: unknown;
+}
+
+interface GitHubActor {
+  login?: string;
+  [key: string]: unknown;
+}
+
+interface GitHubLabel {
+  name?: string;
+  [key: string]: unknown;
+}
+
+export interface GitHubComment {
+  id?: number;
+  body?: string;
+  user?: GitHubActor;
   [key: string]: unknown;
 }
 
@@ -77,11 +112,15 @@ export interface GitHubIssue {
   created_at: string;
   updated_at: string;
   comments?: number;
-  labels?: Array<{ name?: string }>;
-  assignees?: Array<{ login?: string }>;
+  labels?: GitHubLabel[];
+  assignees?: GitHubActor[];
   milestone?: { title?: string } | null;
-  user?: { login?: string };
-  notes?: any[];
+  user?: GitHubActor;
+  comments_url?: string;
+  repository_url?: string;
+  html_url?: string;
+  body?: string;
+  notes?: GitHubComment[];
   metadata?: {
     repository?: string;
     labelNames?: string[];

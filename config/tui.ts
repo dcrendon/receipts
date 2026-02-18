@@ -218,9 +218,9 @@ const captureProviderCredentials = (
   }
 };
 
-export const runConfigWizard = async (
+export const runConfigWizard = (
   seed: Config,
-): Promise<Config> => {
+): Config => {
   console.log("\nIssue Fetcher Wizard");
   console.log(
     "Configure this run. Missing provider credentials can be added now.",

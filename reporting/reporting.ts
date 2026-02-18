@@ -870,13 +870,11 @@ const buildDeterministicNarrative = (
   weeklyPointLeads: string[];
   weeklyPointBullets: string[][];
 } => {
-  const providerCount = coverage
-    ? coverage.connectedProviderCount
-    : [
-      summary.byProvider.gitlab,
-      summary.byProvider.jira,
-      summary.byProvider.github,
-    ].filter((count) => count > 0).length;
+  const providerCount = coverage ? coverage.connectedProviderCount : [
+    summary.byProvider.gitlab,
+    summary.byProvider.jira,
+    summary.byProvider.github,
+  ].filter((count) => count > 0).length;
 
   const headlineLead = context.reportProfile === "brief"
     ? "Focused activity snapshot for the selected reporting window."
@@ -2491,9 +2489,10 @@ const buildCoverageSummary = (
     .filter((result) => result.status === "failed")
     .map((result) => result.provider);
 
-  const connectedProviderCount = requestedProviders.filter((provider) =>
-    summary.byProvider[provider] > 0 || successfulProviders.includes(provider)
-  ).length;
+  const connectedProviderCount =
+    requestedProviders.filter((provider) =>
+      summary.byProvider[provider] > 0 || successfulProviders.includes(provider)
+    ).length;
 
   return {
     sourceMode,

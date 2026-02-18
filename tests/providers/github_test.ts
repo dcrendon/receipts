@@ -12,7 +12,7 @@ Deno.test("githubIssues enriches issues with comments and metadata", async () =>
   const originalFetch = globalThis.fetch;
 
   try {
-    globalThis.fetch = (async (input: string | URL | Request) => {
+    globalThis.fetch = ((input: string | URL | Request) => {
       const url = typeof input === "string"
         ? input
         : input instanceof URL
@@ -25,7 +25,7 @@ Deno.test("githubIssues enriches issues with comments and metadata", async () =>
         const query = parsed.searchParams.get("q") ?? "";
 
         if (query.includes("involves:mock.user") && page === "1") {
-          return makeJsonResponse({
+          return Promise.resolve(makeJsonResponse({
             total_count: 1,
             items: [
               {
@@ -44,28 +44,28 @@ Deno.test("githubIssues enriches issues with comments and metadata", async () =>
                   "https://api.github.com/repos/acme/tool/issues/42/comments",
               },
             ],
-          });
+          }));
         }
 
-        return makeJsonResponse({ total_count: 1, items: [] });
+        return Promise.resolve(makeJsonResponse({ total_count: 1, items: [] }));
       }
 
       if (url.includes("/issues/42/comments")) {
         const parsed = new URL(url);
         const page = parsed.searchParams.get("page");
         if (page === "1") {
-          return makeJsonResponse([
+          return Promise.resolve(makeJsonResponse([
             {
               id: 1,
               body: "Looks good",
               user: { login: "mock.user" },
             },
-          ]);
+          ]));
         }
-        return makeJsonResponse([]);
+        return Promise.resolve(makeJsonResponse([]));
       }
 
-      return makeJsonResponse({}, 404);
+      return Promise.resolve(makeJsonResponse({}, 404));
     }) as typeof fetch;
 
     const issues = await githubIssues(

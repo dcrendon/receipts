@@ -1,5 +1,6 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import process from "node:process";
 
 type ActivityBucket = "completed" | "active" | "blocked" | "other";
 type ProviderName = "gitlab" | "jira" | "github";
@@ -565,8 +566,12 @@ function buildClientScript() {
 
 function ReportDocument({ payload }: { payload: RenderPayload }) {
   const { summary, narrative, context, normalizedIssues, coverage } = payload;
-  const windowLabel = `${formatHumanDate(context.startDate)} -> ${formatHumanDate(context.endDate)}`;
-  const generatedAt = formatHumanDateTime(context.generatedAt ?? new Date().toISOString());
+  const windowLabel = `${formatHumanDate(context.startDate)} -> ${
+    formatHumanDate(context.endDate)
+  }`;
+  const generatedAt = formatHumanDateTime(
+    context.generatedAt ?? new Date().toISOString(),
+  );
 
   return (
     <html lang="en">
@@ -582,44 +587,144 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
             <div className="header-top">
               <div>
                 <h1 className="title">Activity Report</h1>
-                <div className="meta">Window: {windowLabel} | Generated: {generatedAt}</div>
+                <div className="meta">
+                  Window: {windowLabel} | Generated: {generatedAt}
+                </div>
               </div>
-              <div className="meta">Source: {context.sourceMode ?? "report"} | Fetch mode: {context.fetchMode}</div>
+              <div className="meta">
+                Source: {context.sourceMode ?? "report"} | Fetch mode:{" "}
+                {context.fetchMode}
+              </div>
             </div>
             <div className="toolbar">
               <div className="chips" aria-label="Provider filters">
-                <button type="button" className="chip" data-provider-chip="all" data-active="true">All</button>
-                <button type="button" className="chip" data-provider-chip="github">GitHub</button>
-                <button type="button" className="chip" data-provider-chip="gitlab">GitLab</button>
-                <button type="button" className="chip" data-provider-chip="jira">Jira</button>
+                <button
+                  type="button"
+                  className="chip"
+                  data-provider-chip="all"
+                  data-active="true"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className="chip"
+                  data-provider-chip="github"
+                >
+                  GitHub
+                </button>
+                <button
+                  type="button"
+                  className="chip"
+                  data-provider-chip="gitlab"
+                >
+                  GitLab
+                </button>
+                <button
+                  type="button"
+                  className="chip"
+                  data-provider-chip="jira"
+                >
+                  Jira
+                </button>
               </div>
-              <div className="meta">Providers connected: {coverage.connectedProviderCount}/{coverage.totalProviderCount}</div>
-              <button type="button" className="button-primary" data-export-csv>Export CSV</button>
+              <div className="meta">
+                Providers connected:{" "}
+                {coverage.connectedProviderCount}/{coverage.totalProviderCount}
+              </div>
+              <button type="button" className="button-primary" data-export-csv>
+                Export CSV
+              </button>
             </div>
           </header>
 
           <nav className="tabs" aria-label="Report tabs">
-            <button type="button" className="tab" data-tab="overview" data-active="true" role="tab" aria-selected="true">Overview</button>
-            <button type="button" className="tab" data-tab="highlights" role="tab" aria-selected="false">Highlights</button>
-            <button type="button" className="tab" data-tab="issues" role="tab" aria-selected="false">Issues</button>
-            <button type="button" className="tab" data-tab="appendix" role="tab" aria-selected="false">Appendix</button>
+            <button
+              type="button"
+              className="tab"
+              data-tab="overview"
+              data-active="true"
+              role="tab"
+              aria-selected="true"
+            >
+              Overview
+            </button>
+            <button
+              type="button"
+              className="tab"
+              data-tab="highlights"
+              role="tab"
+              aria-selected="false"
+            >
+              Highlights
+            </button>
+            <button
+              type="button"
+              className="tab"
+              data-tab="issues"
+              role="tab"
+              aria-selected="false"
+            >
+              Issues
+            </button>
+            <button
+              type="button"
+              className="tab"
+              data-tab="appendix"
+              role="tab"
+              aria-selected="false"
+            >
+              Appendix
+            </button>
           </nav>
 
-          <section className="panel" data-tab-panel="overview" data-active="true">
+          <section
+            className="panel"
+            data-tab-panel="overview"
+            data-active="true"
+          >
             <h2 className="section-title">Executive Summary</h2>
             <p>{narrative.executiveHeadline}</p>
             <div className="meta" style={{ marginBottom: "10px" }}>
               This report shows activity only for the selected current window.
             </div>
             <div className="kpis">
-              <article className="kpi"><p>Total Issues</p><strong>{summary.totalIssues}</strong></article>
-              <article className="kpi"><p>Completed</p><strong>{summary.byBucket.completed}</strong></article>
-              <article className="kpi"><p>Active</p><strong>{summary.byBucket.active}</strong></article>
-              <article className="kpi"><p>Blocked</p><strong>{summary.byBucket.blocked}</strong></article>
-              <article className="kpi"><p>Contributed Issues</p><strong>{summary.contribution.contributedIssues}</strong></article>
-              <article className="kpi"><p>User Comments</p><strong>{summary.contribution.totalUserComments}</strong></article>
-              <article className="kpi"><p>High Priority</p><strong>{summary.highPriorityLabelIssues}</strong></article>
-              <article className="kpi"><p>GitHub / GitLab / Jira</p><strong>{summary.byProvider.github} / {summary.byProvider.gitlab} / {summary.byProvider.jira}</strong></article>
+              <article className="kpi">
+                <p>Total Issues</p>
+                <strong>{summary.totalIssues}</strong>
+              </article>
+              <article className="kpi">
+                <p>Completed</p>
+                <strong>{summary.byBucket.completed}</strong>
+              </article>
+              <article className="kpi">
+                <p>Active</p>
+                <strong>{summary.byBucket.active}</strong>
+              </article>
+              <article className="kpi">
+                <p>Blocked</p>
+                <strong>{summary.byBucket.blocked}</strong>
+              </article>
+              <article className="kpi">
+                <p>Contributed Issues</p>
+                <strong>{summary.contribution.contributedIssues}</strong>
+              </article>
+              <article className="kpi">
+                <p>User Comments</p>
+                <strong>{summary.contribution.totalUserComments}</strong>
+              </article>
+              <article className="kpi">
+                <p>High Priority</p>
+                <strong>{summary.highPriorityLabelIssues}</strong>
+              </article>
+              <article className="kpi">
+                <p>GitHub / GitLab / Jira</p>
+                <strong>
+                  {summary.byProvider.github} / {summary.byProvider.gitlab} /
+                  {" "}
+                  {summary.byProvider.jira}
+                </strong>
+              </article>
             </div>
           </section>
 
@@ -630,7 +735,8 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
                 <div className="list">
                   {summary.topActivityHighlights.length
                     ? summary.topActivityHighlights.map((issue, index) => {
-                      const wording = narrative.topHighlightWording[index] ?? issue.descriptionSnippet;
+                      const wording = narrative.topHighlightWording[index] ??
+                        issue.descriptionSnippet;
                       return (
                         <article
                           key={`${issue.provider}-${issue.key}`}
@@ -638,14 +744,24 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
                           data-provider-scoped="true"
                           data-provider={issue.provider}
                         >
-                          <h4>{PROVIDER_LABEL[issue.provider]} · {issue.key}</h4>
+                          <h4>
+                            {PROVIDER_LABEL[issue.provider]} · {issue.key}
+                          </h4>
                           <div>{issue.title}</div>
-                          <div className="row-meta">{issue.state} · Updated {formatHumanDateTime(issue.updatedAt)} · Impact {issue.impactScore}</div>
+                          <div className="row-meta">
+                            {issue.state} · Updated{" "}
+                            {formatHumanDateTime(issue.updatedAt)} · Impact{" "}
+                            {issue.impactScore}
+                          </div>
                           <p>{wording}</p>
                         </article>
                       );
                     })
-                    : <div className="empty">No highlights selected for this window.</div>}
+                    : (
+                      <div className="empty">
+                        No highlights selected for this window.
+                      </div>
+                    )}
                 </div>
               </div>
               <div>
@@ -667,7 +783,11 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
                         </article>
                       );
                     })
-                    : <div className="empty">No immediate follow-up actions required.</div>}
+                    : (
+                      <div className="empty">
+                        No immediate follow-up actions required.
+                      </div>
+                    )}
                 </div>
               </div>
             </div>
@@ -686,17 +806,30 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
                   >
                     <h4>{PROVIDER_LABEL[issue.provider]} · {issue.key}</h4>
                     <div>{issue.title}</div>
-                    <div className="row-meta">Comments by user: {issue.userCommentCount} · Impact {issue.impactScore}</div>
+                    <div className="row-meta">
+                      Comments by user: {issue.userCommentCount} · Impact{" "}
+                      {issue.impactScore}
+                    </div>
                   </article>
                 ))
-                : <div className="empty">No collaboration highlights for this window.</div>}
+                : (
+                  <div className="empty">
+                    No collaboration highlights for this window.
+                  </div>
+                )}
             </div>
 
             <h2 className="section-title">Talking Points</h2>
             <div className="list">
               {narrative.weeklyTalkingPoints.length
-                ? narrative.weeklyTalkingPoints.slice(0, 5).map((point, index) => (
-                  <article key={`${point.lead}-${index}`} className="card tone-active">
+                ? narrative.weeklyTalkingPoints.slice(0, 5).map((
+                  point,
+                  index,
+                ) => (
+                  <article
+                    key={`${point.lead}-${index}`}
+                    className="card tone-active"
+                  >
                     <h4>{point.lead}</h4>
                     <ul>
                       {point.bullets.slice(0, 5).map((bullet, bulletIndex) => (
@@ -712,7 +845,11 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
           <section className="panel" data-tab-panel="appendix">
             <h2 className="section-title">Appendix</h2>
             <div className="table-toolbar">
-              <input className="control" data-search placeholder="Search issue or title" />
+              <input
+                className="control"
+                data-search
+                placeholder="Search issue or title"
+              />
               <select className="control" data-filter-provider>
                 <option value="all">Provider: All</option>
                 <option value="github">GitHub</option>
@@ -772,21 +909,37 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
                         data-url={issue.url ?? ""}
                       >
                         <td className="mono">{index + 1}</td>
-                        <td>{issue.url ? <a href={issue.url}>{issue.key}</a> : issue.key}</td>
+                        <td>
+                          {issue.url
+                            ? <a href={issue.url}>{issue.key}</a>
+                            : issue.key}
+                        </td>
                         <td>{PROVIDER_LABEL[issue.provider]}</td>
                         <td>{issue.state}</td>
-                        <td><span className={bucketPillClass(issue.bucket)}>{BUCKET_LABEL[issue.bucket]}</span></td>
+                        <td>
+                          <span className={bucketPillClass(issue.bucket)}>
+                            {BUCKET_LABEL[issue.bucket]}
+                          </span>
+                        </td>
                         <td className="mono">{issue.impactScore}</td>
                         <td>{formatHumanDateTime(issue.updatedAt)}</td>
-                        <td className="mono">{issue.isAuthoredByUser ? "yes" : "no"}</td>
-                        <td className="mono">{issue.isAssignedToUser ? "yes" : "no"}</td>
-                        <td className="mono">{issue.isCommentedByUser ? "yes" : "no"}</td>
+                        <td className="mono">
+                          {issue.isAuthoredByUser ? "yes" : "no"}
+                        </td>
+                        <td className="mono">
+                          {issue.isAssignedToUser ? "yes" : "no"}
+                        </td>
+                        <td className="mono">
+                          {issue.isCommentedByUser ? "yes" : "no"}
+                        </td>
                       </tr>
                     ))
                     : (
                       <tr>
                         <td colSpan={10}>
-                          <div className="empty">No issues available for this window.</div>
+                          <div className="empty">
+                            No issues available for this window.
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -801,16 +954,57 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
               <button type="button" data-sidepanel-close>Close</button>
             </div>
             <div className="sidepanel-body">
-              <p><strong className="mono" data-panel-key>-</strong> <span data-panel-title>-</span></p>
-              <p><span className="meta">Provider</span><br /><span data-panel-provider>-</span></p>
-              <p><span className="meta">State</span><br /><span data-panel-state>-</span></p>
-              <p><span className="meta">Bucket</span><br /><span data-panel-bucket>-</span></p>
-              <p><span className="meta">Impact</span><br /><span className="mono" data-panel-impact>-</span></p>
-              <p><span className="meta">Updated</span><br /><span data-panel-updated>-</span></p>
-              <p><span className="meta">Authored / Assigned / Commented</span><br /><span data-panel-authored>-</span> / <span data-panel-assigned>-</span> / <span data-panel-commented>-</span></p>
-              <p><span className="meta">User comments</span><br /><span className="mono" data-panel-comments>-</span></p>
-              <p><span className="meta">Labels</span><br /><span data-panel-labels>-</span></p>
-              <p><a data-panel-link target="_blank" rel="noreferrer">Open issue</a></p>
+              <p>
+                <strong className="mono" data-panel-key>-</strong>{" "}
+                <span data-panel-title>-</span>
+              </p>
+              <p>
+                <span className="meta">Provider</span>
+                <br />
+                <span data-panel-provider>-</span>
+              </p>
+              <p>
+                <span className="meta">State</span>
+                <br />
+                <span data-panel-state>-</span>
+              </p>
+              <p>
+                <span className="meta">Bucket</span>
+                <br />
+                <span data-panel-bucket>-</span>
+              </p>
+              <p>
+                <span className="meta">Impact</span>
+                <br />
+                <span className="mono" data-panel-impact>-</span>
+              </p>
+              <p>
+                <span className="meta">Updated</span>
+                <br />
+                <span data-panel-updated>-</span>
+              </p>
+              <p>
+                <span className="meta">Authored / Assigned / Commented</span>
+                <br />
+                <span data-panel-authored>-</span> /{" "}
+                <span data-panel-assigned>-</span> /{" "}
+                <span data-panel-commented>-</span>
+              </p>
+              <p>
+                <span className="meta">User comments</span>
+                <br />
+                <span className="mono" data-panel-comments>-</span>
+              </p>
+              <p>
+                <span className="meta">Labels</span>
+                <br />
+                <span data-panel-labels>-</span>
+              </p>
+              <p>
+                <a data-panel-link target="_blank" rel="noreferrer">
+                  Open issue
+                </a>
+              </p>
             </div>
           </aside>
         </main>
@@ -835,7 +1029,8 @@ function readStdin(): Promise<string> {
 async function main() {
   const rawInput = await readStdin();
   const payload = JSON.parse(rawInput) as RenderPayload;
-  const html = "<!doctype html>" + renderToStaticMarkup(<ReportDocument payload={payload} />);
+  const html = "<!doctype html>" +
+    renderToStaticMarkup(<ReportDocument payload={payload} />);
   process.stdout.write(html);
 }
 
