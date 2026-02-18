@@ -1,5 +1,12 @@
+# Environment files
 .env
+.env.*
+!.env.example
+
+# OS files
 .DS_Store
+
+# Generated outputs
 output/
 reports/
 fixtures/
@@ -8,5 +15,7 @@ jira_issues.json
 github_issues.json
 gitlab-issues.exe
 *.png
+
+# Dependencies / build artifacts
 node_modules/
 reporting/shadcn-renderer/dist/
