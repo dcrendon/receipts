@@ -1,6 +1,27 @@
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import process from "node:process";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import styles from "./styles.css?inline";
 
 type ActivityBucket = "completed" | "active" | "blocked" | "other";
 type ProviderName = "gitlab" | "jira" | "github";
@@ -106,195 +127,6 @@ const BUCKET_LABEL: Record<ActivityBucket, string> = {
   other: "Other",
 };
 
-const STYLE_BLOCK = `
-  :root {
-    --bg: #f6f4ef;
-    --paper: #fffdfa;
-    --ink: #1f2937;
-    --muted: #6b7280;
-    --line: #ded8cc;
-    --blue: #1d4ed8;
-    --blue-soft: #dbeafe;
-    --green: #047857;
-    --green-soft: #d1fae5;
-    --amber: #b45309;
-    --amber-soft: #fef3c7;
-    --other: #4b5563;
-    --radius: 12px;
-    --shadow: 0 10px 25px rgba(31, 41, 55, 0.07);
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: radial-gradient(circle at top right, #f2eadb 0%, var(--bg) 45%);
-    color: var(--ink);
-    font: 14px/1.45 "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  }
-  .shell {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-  .header {
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--paper);
-    box-shadow: var(--shadow);
-    padding: 16px;
-  }
-  .header-top {
-    display: flex;
-    gap: 12px;
-    justify-content: space-between;
-    align-items: baseline;
-    flex-wrap: wrap;
-  }
-  .title { margin: 0; font-size: 30px; letter-spacing: -0.02em; }
-  .meta { color: var(--muted); font-size: 12px; }
-  .toolbar {
-    margin-top: 12px;
-    display: grid;
-    grid-template-columns: 1fr auto auto;
-    gap: 8px;
-    align-items: center;
-  }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-  button, select, input {
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: #fff;
-    color: var(--ink);
-    font: inherit;
-    padding: 8px 10px;
-  }
-  button { cursor: pointer; }
-  .chip[data-active="true"] {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-    font-weight: 600;
-  }
-  .button-primary {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-  }
-  .tabs {
-    display: flex;
-    gap: 6px;
-    margin: 12px 0;
-    flex-wrap: wrap;
-  }
-  .tab[data-active="true"] {
-    background: var(--blue-soft);
-    border-color: #93c5fd;
-    color: #1e3a8a;
-    font-weight: 600;
-  }
-  [data-tab-panel] { display: none; }
-  [data-tab-panel][data-active="true"] { display: block; }
-  .panel {
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--paper);
-    box-shadow: var(--shadow);
-    padding: 14px;
-    margin-bottom: 12px;
-  }
-  .section-title {
-    margin: 0 0 10px;
-    font-size: 17px;
-  }
-  .kpis {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 8px;
-  }
-  .kpi {
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 10px;
-    background: #fff;
-  }
-  .kpi p { margin: 0; color: var(--muted); font-size: 12px; }
-  .kpi strong { display: block; margin-top: 4px; font-size: 20px; }
-  .split {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .list { display: grid; gap: 8px; }
-  .card {
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: #fff;
-    padding: 10px;
-  }
-  .card h4 { margin: 0; font-size: 15px; }
-  .row-meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
-  .tone-completed { border-left: 4px solid var(--green); }
-  .tone-active { border-left: 4px solid var(--blue); }
-  .tone-blocked { border-left: 4px solid var(--amber); }
-  .tone-other { border-left: 4px solid var(--other); }
-  .empty {
-    border: 1px dashed var(--line);
-    border-radius: 10px;
-    padding: 12px;
-    color: var(--muted);
-    background: #fafaf8;
-  }
-  .table-toolbar {
-    display: grid;
-    grid-template-columns: 1.2fr repeat(2, minmax(0, 0.6fr));
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  .table-wrap {
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    overflow: auto;
-    background: #fff;
-  }
-  table { width: 100%; border-collapse: collapse; min-width: 860px; }
-  th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; }
-  th { color: var(--muted); font-size: 12px; background: #faf8f4; }
-  tr[data-row] { cursor: pointer; }
-  tr[data-row]:hover { background: #faf8f4; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .sidepanel {
-    position: fixed;
-    right: 0;
-    top: 0;
-    width: min(420px, 92vw);
-    height: 100vh;
-    background: #fff;
-    border-left: 1px solid var(--line);
-    box-shadow: -8px 0 24px rgba(31, 41, 55, 0.15);
-    transform: translateX(100%);
-    transition: transform 0.2s ease;
-    z-index: 100;
-    display: grid;
-    grid-template-rows: auto 1fr;
-  }
-  .sidepanel.open { transform: translateX(0); }
-  .sidepanel-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    border-bottom: 1px solid var(--line);
-  }
-  .sidepanel-body { padding: 10px; overflow: auto; }
-  .pill { border-radius: 999px; padding: 2px 8px; font-size: 12px; }
-  .pill-completed { background: var(--green-soft); color: #065f46; }
-  .pill-active { background: var(--blue-soft); color: #1e3a8a; }
-  .pill-blocked { background: var(--amber-soft); color: #92400e; }
-  .pill-other { background: #e5e7eb; color: #374151; }
-  @media (max-width: 920px) {
-    .toolbar { grid-template-columns: 1fr; }
-    .split { grid-template-columns: 1fr; }
-    .table-toolbar { grid-template-columns: 1fr; }
-  }
-`;
-
 function formatHumanDateTime(value: string): string {
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) return value;
@@ -321,23 +153,49 @@ function formatHumanDate(value: string): string {
 }
 
 function bucketToneClass(bucket: ActivityBucket): string {
-  if (bucket === "completed") return "tone-completed";
-  if (bucket === "active") return "tone-active";
-  if (bucket === "blocked") return "tone-blocked";
-  return "tone-other";
+  if (bucket === "completed") return "border-l-4 border-l-emerald-400";
+  if (bucket === "active") return "border-l-4 border-l-sky-400";
+  if (bucket === "blocked") return "border-l-4 border-l-amber-400";
+  return "border-l-4 border-l-slate-400";
 }
 
-function bucketPillClass(bucket: ActivityBucket): string {
-  if (bucket === "completed") return "pill pill-completed";
-  if (bucket === "active") return "pill pill-active";
-  if (bucket === "blocked") return "pill pill-blocked";
-  return "pill pill-other";
+function bucketBadgeClass(bucket: ActivityBucket): string {
+  if (bucket === "completed") {
+    return "border-emerald-300/35 bg-emerald-500/15 text-emerald-200";
+  }
+  if (bucket === "active") {
+    return "border-sky-300/35 bg-sky-500/15 text-sky-200";
+  }
+  if (bucket === "blocked") {
+    return "border-amber-300/35 bg-amber-500/15 text-amber-200";
+  }
+  return "border-slate-300/35 bg-slate-500/15 text-slate-200";
 }
 
 function parseRiskLine(value: string): { context: string; action: string } {
   const match = value.match(/^\[([^\]]+)\]\s*(.+)$/);
   if (!match) return { context: "Follow-up", action: value };
   return { context: match[1], action: match[2] };
+}
+
+function InsightMetric({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string | number;
+  detail: string;
+}) {
+  return (
+    <Card className="bg-secondary/45">
+      <CardContent className="p-4">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
+  );
 }
 
 function buildClientScript() {
@@ -348,7 +206,6 @@ function buildClientScript() {
     if (!root) return;
 
     const state = {
-      tab: 'overview',
       provider: 'all',
       query: '',
       filterState: 'all',
@@ -356,30 +213,6 @@ function buildClientScript() {
     };
 
     const bySel = (sel) => Array.from(document.querySelectorAll(sel));
-
-    const applyTabs = (tabId) => {
-      state.tab = tabId;
-      bySel('[data-tab]').forEach((node) => {
-        const active = node.getAttribute('data-tab') === tabId;
-        node.setAttribute('data-active', String(active));
-        node.setAttribute('aria-selected', String(active));
-      });
-      bySel('[data-tab-panel]').forEach((node) => {
-        const active = node.getAttribute('data-tab-panel') === tabId;
-        node.setAttribute('data-active', String(active));
-      });
-    };
-
-    const applyProvider = (provider) => {
-      state.provider = provider;
-      bySel('[data-provider-chip]').forEach((chip) => {
-        const active = chip.getAttribute('data-provider-chip') === provider;
-        chip.setAttribute('data-active', String(active));
-      });
-      const providerFilter = document.querySelector('[data-filter-provider]');
-      if (providerFilter) providerFilter.value = provider;
-      renderVisibility();
-    };
 
     const rowMatchesFilters = (row) => {
       const provider = row.getAttribute('data-provider') || '';
@@ -396,76 +229,30 @@ function buildClientScript() {
       return matchesProvider && matchesState && matchesImpact && matchesQuery;
     };
 
-    const renderVisibility = () => {
-      bySel('[data-provider-scoped]').forEach((node) => {
-        const provider = node.getAttribute('data-provider') || '';
-        const visible = state.provider === 'all' || provider === state.provider;
-        node.style.display = visible ? '' : 'none';
-      });
-
-      bySel('[data-row]').forEach((row) => {
-        row.style.display = rowMatchesFilters(row) ? '' : 'none';
-      });
-    };
-
-    const openSidePanel = (row) => {
-      const panel = document.querySelector('[data-sidepanel]');
-      if (!panel) return;
-      const fields = {
-        key: row.getAttribute('data-key') || '-',
-        title: row.getAttribute('data-title') || '-',
-        provider: row.getAttribute('data-provider-label') || '-',
-        state: row.getAttribute('data-state') || '-',
-        bucket: row.getAttribute('data-bucket') || '-',
-        impact: row.getAttribute('data-impact') || '-',
-        updated: row.getAttribute('data-updated') || '-',
-        authored: row.getAttribute('data-authored') || '-',
-        assigned: row.getAttribute('data-assigned') || '-',
-        commented: row.getAttribute('data-commented') || '-',
-        comments: row.getAttribute('data-comments') || '0',
-        labels: row.getAttribute('data-labels') || 'none',
-        url: row.getAttribute('data-url') || '',
-      };
-
-      Object.entries(fields).forEach(([key, value]) => {
-        const target = panel.querySelector('[data-panel-' + key + ']');
-        if (target) target.textContent = String(value);
-      });
-
-      const link = panel.querySelector('[data-panel-link]');
-      if (link) {
-        if (fields.url) {
-          link.setAttribute('href', fields.url);
-          link.removeAttribute('hidden');
-        } else {
-          link.setAttribute('hidden', 'hidden');
-        }
+    const updateVisibleCount = (visible, total) => {
+      const counter = document.querySelector('[data-visible-count]');
+      if (counter) {
+        counter.textContent = 'Showing ' + visible + ' of ' + total + ' issues';
       }
-
-      panel.classList.add('open');
-      panel.setAttribute('aria-hidden', 'false');
-      const closeBtn = panel.querySelector('[data-sidepanel-close]');
-      if (closeBtn) closeBtn.focus();
     };
 
-    bySel('[data-tab]').forEach((button) => {
-      button.addEventListener('click', () => {
-        applyTabs(button.getAttribute('data-tab') || 'overview');
+    const renderVisibility = () => {
+      const rows = bySel('[data-row]');
+      let visible = 0;
+      rows.forEach((row) => {
+        const matches = rowMatchesFilters(row);
+        row.style.display = matches ? '' : 'none';
+        if (matches) visible += 1;
       });
-    });
-
-    bySel('[data-provider-chip]').forEach((chip) => {
-      chip.addEventListener('click', () => {
-        applyProvider(chip.getAttribute('data-provider-chip') || 'all');
-      });
-    });
+      updateVisibleCount(visible, rows.length);
+    };
 
     const providerFilter = document.querySelector('[data-filter-provider]');
     if (providerFilter) {
       providerFilter.addEventListener('change', (event) => {
         const target = event.target;
-        const value = target && target.value ? String(target.value) : 'all';
-        applyProvider(value);
+        state.provider = target && target.value ? String(target.value) : 'all';
+        renderVisibility();
       });
     }
 
@@ -496,45 +283,41 @@ function buildClientScript() {
       });
     }
 
-    bySel('[data-row]').forEach((row) => {
-      row.addEventListener('click', () => openSidePanel(row));
-      row.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          openSidePanel(row);
-        }
-      });
-    });
-
-    const panel = document.querySelector('[data-sidepanel]');
-    if (panel) {
-      const closePanel = () => {
-        panel.classList.remove('open');
-        panel.setAttribute('aria-hidden', 'true');
-      };
-      const closeBtn = panel.querySelector('[data-sidepanel-close]');
-      if (closeBtn) closeBtn.addEventListener('click', closePanel);
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closePanel();
-      });
-    }
-
     const exportCsv = document.querySelector('[data-export-csv]');
     if (exportCsv) {
       exportCsv.addEventListener('click', () => {
         const visibleRows = bySel('[data-row]').filter((row) => row.style.display !== 'none');
-        const headers = ['Rank','Issue','Provider','State','Bucket','Impact','Updated','Authored','Assigned','Commented'];
+        const headers = [
+          'Rank',
+          'Issue',
+          'Title',
+          'Provider',
+          'State',
+          'Bucket',
+          'Impact',
+          'Updated',
+          'User comments',
+          'Authored',
+          'Assigned',
+          'Commented',
+          'Labels',
+          'URL',
+        ];
         const data = visibleRows.map((row) => [
           row.getAttribute('data-rank') || '',
           row.getAttribute('data-key') || '',
+          row.getAttribute('data-title') || '',
           row.getAttribute('data-provider-label') || '',
           row.getAttribute('data-state') || '',
           row.getAttribute('data-bucket') || '',
           row.getAttribute('data-impact') || '',
           row.getAttribute('data-updated') || '',
+          row.getAttribute('data-comments') || '',
           row.getAttribute('data-authored') || '',
           row.getAttribute('data-assigned') || '',
           row.getAttribute('data-commented') || '',
+          row.getAttribute('data-labels') || '',
+          row.getAttribute('data-url') || '',
         ]);
         const csv = [headers, ...data]
           .map((line) => line.map((cell) => '"' + String(cell).replaceAll('"', '""') + '"').join(','))
@@ -551,8 +334,7 @@ function buildClientScript() {
       });
     }
 
-    applyTabs('overview');
-    applyProvider('all');
+    renderVisibility();
   };
 
   if (document.readyState === 'loading') {
@@ -565,7 +347,15 @@ function buildClientScript() {
 }
 
 function ReportDocument({ payload }: { payload: RenderPayload }) {
-  const { summary, narrative, context, normalizedIssues, coverage } = payload;
+  const {
+    summary,
+    narrative,
+    context,
+    normalizedIssues,
+    coverage,
+    providerDistribution,
+  } = payload;
+
   const windowLabel = `${formatHumanDate(context.startDate)} -> ${
     formatHumanDate(context.endDate)
   }`;
@@ -573,440 +363,472 @@ function ReportDocument({ payload }: { payload: RenderPayload }) {
     context.generatedAt ?? new Date().toISOString(),
   );
 
+  const completionRate = summary.totalIssues > 0
+    ? Math.round((summary.byBucket.completed / summary.totalIssues) * 100)
+    : 0;
+  const contributionRate = summary.totalIssues > 0
+    ? Math.round(
+      (summary.contribution.contributedIssues / summary.totalIssues) * 100,
+    )
+    : 0;
+  const maxProviderCount = Math.max(
+    1,
+    ...providerDistribution.map((entry) => entry.count),
+  );
+  const coverageNote = coverage.partialFailures
+    ? `${coverage.partialFailures} provider failure${
+      coverage.partialFailures === 1 ? "" : "s"
+    } occurred during data collection.`
+    : "All requested providers returned data for this reporting window.";
+
   return (
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Activity Report</title>
-        <style dangerouslySetInnerHTML={{ __html: STYLE_BLOCK }} />
+        <style dangerouslySetInnerHTML={{ __html: styles }} />
       </head>
-      <body>
-        <main className="shell" data-root="true">
-          <header className="header">
-            <div className="header-top">
-              <div>
-                <h1 className="title">Activity Report</h1>
-                <div className="meta">
-                  Window: {windowLabel} | Generated: {generatedAt}
+      <body className="min-h-screen bg-background text-foreground antialiased">
+        <main
+          className="mx-auto w-full max-w-[1320px] space-y-4 p-4 md:p-6"
+          data-root="true"
+        >
+          <Card className="bg-card/90">
+            <CardHeader className="space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-3xl tracking-tight">
+                    Activity Report
+                  </CardTitle>
+                  <CardDescription className="mt-2 text-xs">
+                    Window: {windowLabel} | Generated: {generatedAt}
+                  </CardDescription>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Source: {context.sourceMode ?? "report"} | Fetch mode: {" "}
+                  {context.fetchMode}
+                </p>
+              </div>
+              <Separator />
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <nav className="flex flex-wrap gap-2 text-xs" aria-label="Jump to section">
+                  <a
+                    className="rounded-full border border-border bg-secondary/40 px-3 py-1 hover:bg-secondary"
+                    href="#summary"
+                  >
+                    Summary
+                  </a>
+                  <a
+                    className="rounded-full border border-border bg-secondary/40 px-3 py-1 hover:bg-secondary"
+                    href="#highlights"
+                  >
+                    Highlights
+                  </a>
+                  <a
+                    className="rounded-full border border-border bg-secondary/40 px-3 py-1 hover:bg-secondary"
+                    href="#talking-points"
+                  >
+                    Talking Points
+                  </a>
+                  <a
+                    className="rounded-full border border-border bg-secondary/40 px-3 py-1 hover:bg-secondary"
+                    href="#appendix"
+                  >
+                    All Issues
+                  </a>
+                </nav>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    Providers connected: {coverage.connectedProviderCount}/
+                    {coverage.totalProviderCount}
+                  </span>
+                  <Button type="button" size="sm" variant="secondary" data-export-csv>
+                    Export CSV
+                  </Button>
                 </div>
               </div>
-              <div className="meta">
-                Source: {context.sourceMode ?? "report"} | Fetch mode:{" "}
-                {context.fetchMode}
-              </div>
-            </div>
-            <div className="toolbar">
-              <div className="chips" aria-label="Provider filters">
-                <button
-                  type="button"
-                  className="chip"
-                  data-provider-chip="all"
-                  data-active="true"
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  className="chip"
-                  data-provider-chip="github"
-                >
-                  GitHub
-                </button>
-                <button
-                  type="button"
-                  className="chip"
-                  data-provider-chip="gitlab"
-                >
-                  GitLab
-                </button>
-                <button
-                  type="button"
-                  className="chip"
-                  data-provider-chip="jira"
-                >
-                  Jira
-                </button>
-              </div>
-              <div className="meta">
-                Providers connected:{" "}
-                {coverage.connectedProviderCount}/{coverage.totalProviderCount}
-              </div>
-              <button type="button" className="button-primary" data-export-csv>
-                Export CSV
-              </button>
-            </div>
-          </header>
+            </CardHeader>
+          </Card>
 
-          <nav className="tabs" aria-label="Report tabs">
-            <button
-              type="button"
-              className="tab"
-              data-tab="overview"
-              data-active="true"
-              role="tab"
-              aria-selected="true"
-            >
-              Overview
-            </button>
-            <button
-              type="button"
-              className="tab"
-              data-tab="highlights"
-              role="tab"
-              aria-selected="false"
-            >
-              Highlights
-            </button>
-            <button
-              type="button"
-              className="tab"
-              data-tab="issues"
-              role="tab"
-              aria-selected="false"
-            >
-              Issues
-            </button>
-            <button
-              type="button"
-              className="tab"
-              data-tab="appendix"
-              role="tab"
-              aria-selected="false"
-            >
-              Appendix
-            </button>
-          </nav>
-
-          <section
-            className="panel"
-            data-tab-panel="overview"
-            data-active="true"
-          >
-            <h2 className="section-title">Executive Summary</h2>
-            <p>{narrative.executiveHeadline}</p>
-            <div className="meta" style={{ marginBottom: "10px" }}>
-              This report shows activity only for the selected current window.
-            </div>
-            <div className="kpis">
-              <article className="kpi">
-                <p>Total Issues</p>
-                <strong>{summary.totalIssues}</strong>
-              </article>
-              <article className="kpi">
-                <p>Completed</p>
-                <strong>{summary.byBucket.completed}</strong>
-              </article>
-              <article className="kpi">
-                <p>Active</p>
-                <strong>{summary.byBucket.active}</strong>
-              </article>
-              <article className="kpi">
-                <p>Blocked</p>
-                <strong>{summary.byBucket.blocked}</strong>
-              </article>
-              <article className="kpi">
-                <p>Contributed Issues</p>
-                <strong>{summary.contribution.contributedIssues}</strong>
-              </article>
-              <article className="kpi">
-                <p>User Comments</p>
-                <strong>{summary.contribution.totalUserComments}</strong>
-              </article>
-              <article className="kpi">
-                <p>High Priority</p>
-                <strong>{summary.highPriorityLabelIssues}</strong>
-              </article>
-              <article className="kpi">
-                <p>GitHub / GitLab / Jira</p>
-                <strong>
-                  {summary.byProvider.github} / {summary.byProvider.gitlab} /
-                  {" "}
-                  {summary.byProvider.jira}
-                </strong>
-              </article>
-            </div>
+          <section id="summary">
+            <Card>
+              <CardHeader>
+                <CardTitle>Executive Summary</CardTitle>
+                <CardDescription>
+                  This report shows activity only for the selected current window.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm leading-6">{narrative.executiveHeadline}</p>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <InsightMetric
+                    label="Total Issues"
+                    value={summary.totalIssues}
+                    detail={`${summary.byBucket.completed} completed / ${summary.byBucket.active} active / ${summary.byBucket.blocked} blocked`}
+                  />
+                  <InsightMetric
+                    label="Contribution"
+                    value={`${contributionRate}%`}
+                    detail={`${summary.contribution.contributedIssues} contributed issues and ${summary.contribution.totalUserComments} user comments`}
+                  />
+                  <InsightMetric
+                    label="High Priority"
+                    value={summary.highPriorityLabelIssues}
+                    detail="Issues carrying high-impact labels"
+                  />
+                  <InsightMetric
+                    label="Collection Health"
+                    value={`${coverage.successfulProviders.length}/${coverage.requestedProviders.length}`}
+                    detail={coverageNote}
+                  />
+                </div>
+                <Separator />
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Provider Mix
+                  </h3>
+                  {providerDistribution.length
+                    ? providerDistribution.map((entry) => {
+                      const width = Math.round((entry.count / maxProviderCount) * 100);
+                      return (
+                        <div
+                          key={entry.provider}
+                          className="rounded-lg border border-border bg-secondary/35 px-3 py-2"
+                        >
+                          <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{PROVIDER_LABEL[entry.provider]}</span>
+                            <span className="font-mono">{entry.count}</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-background/70">
+                            <div
+                              className="h-2 rounded-full bg-primary"
+                              style={{ width: `${width}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                    : <p className="text-sm text-muted-foreground">No provider distribution available.</p>}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <InsightMetric
+                    label="Completion Rate"
+                    value={`${completionRate}%`}
+                    detail={`${summary.byBucket.completed} of ${summary.totalIssues} issues completed`}
+                  />
+                  <InsightMetric
+                    label="GitHub / GitLab / Jira"
+                    value={`${summary.byProvider.github} / ${summary.byProvider.gitlab} / ${summary.byProvider.jira}`}
+                    detail="Issue count by provider"
+                  />
+                  <InsightMetric
+                    label="Contributed Issues"
+                    value={summary.contribution.contributedIssues}
+                    detail="Issues where the user authored, was assigned, or commented"
+                  />
+                  <InsightMetric
+                    label="Total User Comments"
+                    value={summary.contribution.totalUserComments}
+                    detail="Direct comments made by the user in this window"
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </section>
 
-          <section className="panel" data-tab-panel="highlights">
-            <div className="split">
-              <div>
-                <h2 className="section-title">Top Highlights</h2>
-                <div className="list">
+          <section id="highlights">
+            <Card>
+              <CardHeader>
+                <CardTitle>Highlights and Risks</CardTitle>
+                <CardDescription>
+                  Top Highlights, Risks and Follow-ups, and Collaboration are all visible on this page.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3 lg:grid-cols-3">
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Top Highlights
+                  </h3>
                   {summary.topActivityHighlights.length
                     ? summary.topActivityHighlights.map((issue, index) => {
                       const wording = narrative.topHighlightWording[index] ??
                         issue.descriptionSnippet;
                       return (
-                        <article
+                        <Card
                           key={`${issue.provider}-${issue.key}`}
-                          className={`card ${bucketToneClass(issue.bucket)}`}
-                          data-provider-scoped="true"
-                          data-provider={issue.provider}
+                          className={`${bucketToneClass(issue.bucket)} bg-secondary/40`}
                         >
-                          <h4>
-                            {PROVIDER_LABEL[issue.provider]} · {issue.key}
-                          </h4>
-                          <div>{issue.title}</div>
-                          <div className="row-meta">
-                            {issue.state} · Updated{" "}
-                            {formatHumanDateTime(issue.updatedAt)} · Impact{" "}
-                            {issue.impactScore}
-                          </div>
-                          <p>{wording}</p>
-                        </article>
+                          <CardContent className="space-y-2 p-3">
+                            <p className="text-sm font-semibold">
+                              {PROVIDER_LABEL[issue.provider]} · {issue.key}
+                            </p>
+                            <p className="text-sm">{issue.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {issue.state} · Updated {formatHumanDateTime(issue.updatedAt)} · Impact {issue.impactScore}
+                            </p>
+                            <p className="text-sm leading-6">{wording}</p>
+                          </CardContent>
+                        </Card>
                       );
                     })
                     : (
-                      <div className="empty">
-                        No highlights selected for this window.
-                      </div>
+                      <Card className="border-dashed bg-secondary/30">
+                        <CardContent className="p-3 text-sm text-muted-foreground">
+                          No highlights selected for this window.
+                        </CardContent>
+                      </Card>
                     )}
                 </div>
-              </div>
-              <div>
-                <h2 className="section-title">Risks and Follow-ups</h2>
-                <div className="list">
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Risks and Follow-ups
+                  </h3>
                   {narrative.risksAndFollowUps.length
                     ? narrative.risksAndFollowUps.map((line, index) => {
                       const parsed = parseRiskLine(line);
-                      const sourceIssue = summary.risksAndFollowUps[index];
                       return (
-                        <article
+                        <Card
                           key={`${line}-${index}`}
-                          className="card tone-blocked"
-                          data-provider-scoped="true"
-                          data-provider={sourceIssue?.provider ?? "github"}
+                          className="border-l-4 border-l-amber-400 bg-secondary/40"
                         >
-                          <h4>{parsed.context}</h4>
-                          <p>{parsed.action}</p>
-                        </article>
+                          <CardContent className="space-y-1 p-3">
+                            <p className="text-sm font-semibold">{parsed.context}</p>
+                            <p className="text-sm leading-6">{parsed.action}</p>
+                          </CardContent>
+                        </Card>
                       );
                     })
                     : (
-                      <div className="empty">
-                        No immediate follow-up actions required.
-                      </div>
+                      <Card className="border-dashed bg-secondary/30">
+                        <CardContent className="p-3 text-sm text-muted-foreground">
+                          No immediate follow-up actions required.
+                        </CardContent>
+                      </Card>
                     )}
                 </div>
-              </div>
-            </div>
-          </section>
 
-          <section className="panel" data-tab-panel="issues">
-            <h2 className="section-title">Collaboration</h2>
-            <div className="list" style={{ marginBottom: "10px" }}>
-              {summary.collaborationHighlights.length
-                ? summary.collaborationHighlights.map((issue) => (
-                  <article
-                    key={`${issue.provider}-${issue.key}`}
-                    className={`card ${bucketToneClass(issue.bucket)}`}
-                    data-provider-scoped="true"
-                    data-provider={issue.provider}
-                  >
-                    <h4>{PROVIDER_LABEL[issue.provider]} · {issue.key}</h4>
-                    <div>{issue.title}</div>
-                    <div className="row-meta">
-                      Comments by user: {issue.userCommentCount} · Impact{" "}
-                      {issue.impactScore}
-                    </div>
-                  </article>
-                ))
-                : (
-                  <div className="empty">
-                    No collaboration highlights for this window.
-                  </div>
-                )}
-            </div>
-
-            <h2 className="section-title">Talking Points</h2>
-            <div className="list">
-              {narrative.weeklyTalkingPoints.length
-                ? narrative.weeklyTalkingPoints.slice(0, 5).map((
-                  point,
-                  index,
-                ) => (
-                  <article
-                    key={`${point.lead}-${index}`}
-                    className="card tone-active"
-                  >
-                    <h4>{point.lead}</h4>
-                    <ul>
-                      {point.bullets.slice(0, 5).map((bullet, bulletIndex) => (
-                        <li key={`${bullet}-${bulletIndex}`}>{bullet}</li>
-                      ))}
-                    </ul>
-                  </article>
-                ))
-                : <div className="empty">No talking points generated.</div>}
-            </div>
-          </section>
-
-          <section className="panel" data-tab-panel="appendix">
-            <h2 className="section-title">Appendix</h2>
-            <div className="table-toolbar">
-              <input
-                className="control"
-                data-search
-                placeholder="Search issue or title"
-              />
-              <select className="control" data-filter-provider>
-                <option value="all">Provider: All</option>
-                <option value="github">GitHub</option>
-                <option value="gitlab">GitLab</option>
-                <option value="jira">Jira</option>
-              </select>
-              <select className="control" data-filter-state>
-                <option value="all">State: Any</option>
-                <option value="open">Open</option>
-                <option value="closed">Closed/Done</option>
-                <option value="blocked">Blocked</option>
-              </select>
-              <select className="control" data-filter-impact>
-                <option value="all">Impact: Any</option>
-                <option value="high">High (80+)</option>
-                <option value="medium">Medium (50-79)</option>
-                <option value="low">Low (&lt;50)</option>
-              </select>
-            </div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Issue</th>
-                    <th>Provider</th>
-                    <th>State</th>
-                    <th>Bucket</th>
-                    <th>Impact</th>
-                    <th>Updated</th>
-                    <th>Authored</th>
-                    <th>Assigned</th>
-                    <th>Commented</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {normalizedIssues.length
-                    ? normalizedIssues.map((issue, index) => (
-                      <tr
-                        key={`${issue.provider}-${issue.key}-${index}`}
-                        tabIndex={0}
-                        data-row
-                        data-rank={index + 1}
-                        data-provider={issue.provider}
-                        data-provider-label={PROVIDER_LABEL[issue.provider]}
-                        data-key={issue.key}
-                        data-title={issue.title}
-                        data-state={issue.state}
-                        data-bucket={issue.bucket}
-                        data-impact={issue.impactScore}
-                        data-updated={formatHumanDateTime(issue.updatedAt)}
-                        data-authored={issue.isAuthoredByUser ? "yes" : "no"}
-                        data-assigned={issue.isAssignedToUser ? "yes" : "no"}
-                        data-commented={issue.isCommentedByUser ? "yes" : "no"}
-                        data-comments={issue.userCommentCount}
-                        data-labels={(issue.labels ?? []).join(", ") || "none"}
-                        data-url={issue.url ?? ""}
-                      >
-                        <td className="mono">{index + 1}</td>
-                        <td>
-                          {issue.url
-                            ? <a href={issue.url}>{issue.key}</a>
-                            : issue.key}
-                        </td>
-                        <td>{PROVIDER_LABEL[issue.provider]}</td>
-                        <td>{issue.state}</td>
-                        <td>
-                          <span className={bucketPillClass(issue.bucket)}>
-                            {BUCKET_LABEL[issue.bucket]}
-                          </span>
-                        </td>
-                        <td className="mono">{issue.impactScore}</td>
-                        <td>{formatHumanDateTime(issue.updatedAt)}</td>
-                        <td className="mono">
-                          {issue.isAuthoredByUser ? "yes" : "no"}
-                        </td>
-                        <td className="mono">
-                          {issue.isAssignedToUser ? "yes" : "no"}
-                        </td>
-                        <td className="mono">
-                          {issue.isCommentedByUser ? "yes" : "no"}
-                        </td>
-                      </tr>
-                    ))
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Collaboration
+                  </h3>
+                  {summary.collaborationHighlights.length
+                    ? summary.collaborationHighlights.map((issue, index) => {
+                      const wording = narrative.collaborationHighlights[index];
+                      return (
+                        <Card
+                          key={`${issue.provider}-${issue.key}`}
+                          className={`${bucketToneClass(issue.bucket)} bg-secondary/40`}
+                        >
+                          <CardContent className="space-y-2 p-3">
+                            <p className="text-sm font-semibold">
+                              {PROVIDER_LABEL[issue.provider]} · {issue.key}
+                            </p>
+                            <p className="text-sm">{issue.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Comments by user: {issue.userCommentCount} · Impact {issue.impactScore}
+                            </p>
+                            {wording ? <p className="text-sm leading-6">{wording}</p> : null}
+                          </CardContent>
+                        </Card>
+                      );
+                    })
                     : (
-                      <tr>
-                        <td colSpan={10}>
-                          <div className="empty">
-                            No issues available for this window.
-                          </div>
-                        </td>
-                      </tr>
+                      <Card className="border-dashed bg-secondary/30">
+                        <CardContent className="p-3 text-sm text-muted-foreground">
+                          No collaboration highlights for this window.
+                        </CardContent>
+                      </Card>
                     )}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           </section>
 
-          <aside className="sidepanel" data-sidepanel aria-hidden="true">
-            <div className="sidepanel-head">
-              <strong>Issue Details</strong>
-              <button type="button" data-sidepanel-close>Close</button>
-            </div>
-            <div className="sidepanel-body">
-              <p>
-                <strong className="mono" data-panel-key>-</strong>{" "}
-                <span data-panel-title>-</span>
-              </p>
-              <p>
-                <span className="meta">Provider</span>
-                <br />
-                <span data-panel-provider>-</span>
-              </p>
-              <p>
-                <span className="meta">State</span>
-                <br />
-                <span data-panel-state>-</span>
-              </p>
-              <p>
-                <span className="meta">Bucket</span>
-                <br />
-                <span data-panel-bucket>-</span>
-              </p>
-              <p>
-                <span className="meta">Impact</span>
-                <br />
-                <span className="mono" data-panel-impact>-</span>
-              </p>
-              <p>
-                <span className="meta">Updated</span>
-                <br />
-                <span data-panel-updated>-</span>
-              </p>
-              <p>
-                <span className="meta">Authored / Assigned / Commented</span>
-                <br />
-                <span data-panel-authored>-</span> /{" "}
-                <span data-panel-assigned>-</span> /{" "}
-                <span data-panel-commented>-</span>
-              </p>
-              <p>
-                <span className="meta">User comments</span>
-                <br />
-                <span className="mono" data-panel-comments>-</span>
-              </p>
-              <p>
-                <span className="meta">Labels</span>
-                <br />
-                <span data-panel-labels>-</span>
-              </p>
-              <p>
-                <a data-panel-link target="_blank" rel="noreferrer">
-                  Open issue
-                </a>
-              </p>
-            </div>
-          </aside>
+          <section id="talking-points">
+            <Card>
+              <CardHeader>
+                <CardTitle>Talking Points</CardTitle>
+                <CardDescription>
+                  Suggested discussion bullets for this reporting window.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {narrative.weeklyTalkingPoints.length
+                  ? narrative.weeklyTalkingPoints.slice(0, 5).map((point, index) => (
+                    <Card key={`${point.lead}-${index}`} className="bg-secondary/35">
+                      <CardContent className="space-y-2 p-3">
+                        <p className="text-sm font-semibold">{point.lead}</p>
+                        <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
+                          {point.bullets.slice(0, 5).map((bullet, bulletIndex) => (
+                            <li key={`${bullet}-${bulletIndex}`}>{bullet}</li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  ))
+                  : (
+                    <Card className="border-dashed bg-secondary/30">
+                      <CardContent className="p-3 text-sm text-muted-foreground">
+                        No talking points generated.
+                      </CardContent>
+                    </Card>
+                  )}
+              </CardContent>
+            </Card>
+          </section>
+
+          <section id="appendix">
+            <Card>
+              <CardHeader>
+                <CardTitle>Appendix</CardTitle>
+                <CardDescription>
+                  Full issue list with inline details and client-side filters.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-2 lg:grid-cols-[1.6fr_repeat(3,minmax(0,0.9fr))_auto]">
+                  <Input
+                    className="h-9"
+                    data-search
+                    placeholder="Search issue or title"
+                  />
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    data-filter-provider
+                  >
+                    <option value="all">Provider: All</option>
+                    <option value="github">GitHub</option>
+                    <option value="gitlab">GitLab</option>
+                    <option value="jira">Jira</option>
+                  </select>
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    data-filter-state
+                  >
+                    <option value="all">State: Any</option>
+                    <option value="open">Open</option>
+                    <option value="closed">Closed/Done</option>
+                    <option value="blocked">Blocked</option>
+                  </select>
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    data-filter-impact
+                  >
+                    <option value="all">Impact: Any</option>
+                    <option value="high">High (80+)</option>
+                    <option value="medium">Medium (50-79)</option>
+                    <option value="low">Low (&lt;50)</option>
+                  </select>
+                  <div
+                    className="self-center justify-self-start text-xs text-muted-foreground lg:justify-self-end"
+                    data-visible-count
+                  >
+                    Showing {normalizedIssues.length} of {normalizedIssues.length} issues
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-lg border border-border bg-card/70">
+                  <Table className="min-w-[1450px]">
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="sticky top-0 z-10 bg-card">Rank</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card">Issue</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card min-w-60">Title</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card">Provider</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card">State</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card">Bucket</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card">Impact</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card">Updated</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card">User Comments</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card">Authored</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card">Assigned</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card">Commented</TableHead>
+                        <TableHead className="sticky top-0 z-10 bg-card min-w-52">Labels</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {normalizedIssues.length
+                        ? normalizedIssues.map((issue, index) => {
+                          const labels = (issue.labels ?? []).join(", ") || "none";
+                          const updated = formatHumanDateTime(issue.updatedAt);
+                          return (
+                            <TableRow
+                              key={`${issue.provider}-${issue.key}-${index}`}
+                              data-row
+                              data-rank={index + 1}
+                              data-provider={issue.provider}
+                              data-provider-label={PROVIDER_LABEL[issue.provider]}
+                              data-key={issue.key}
+                              data-title={issue.title}
+                              data-state={issue.state}
+                              data-bucket={issue.bucket}
+                              data-impact={issue.impactScore}
+                              data-updated={updated}
+                              data-authored={issue.isAuthoredByUser ? "yes" : "no"}
+                              data-assigned={issue.isAssignedToUser ? "yes" : "no"}
+                              data-commented={issue.isCommentedByUser ? "yes" : "no"}
+                              data-comments={issue.userCommentCount}
+                              data-labels={labels}
+                              data-url={issue.url ?? ""}
+                            >
+                              <TableCell className="font-mono">{index + 1}</TableCell>
+                              <TableCell>
+                                {issue.url
+                                  ? (
+                                    <a
+                                      href={issue.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="font-medium underline-offset-4 hover:underline"
+                                    >
+                                      {issue.key}
+                                    </a>
+                                  )
+                                  : issue.key}
+                              </TableCell>
+                              <TableCell className="text-foreground/90">{issue.title}</TableCell>
+                              <TableCell>{PROVIDER_LABEL[issue.provider]}</TableCell>
+                              <TableCell>{issue.state}</TableCell>
+                              <TableCell>
+                                <Badge className={bucketBadgeClass(issue.bucket)} variant="outline">
+                                  {BUCKET_LABEL[issue.bucket]}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-mono">{issue.impactScore}</TableCell>
+                              <TableCell>{updated}</TableCell>
+                              <TableCell className="font-mono">{issue.userCommentCount}</TableCell>
+                              <TableCell className="font-mono">
+                                {issue.isAuthoredByUser ? "yes" : "no"}
+                              </TableCell>
+                              <TableCell className="font-mono">
+                                {issue.isAssignedToUser ? "yes" : "no"}
+                              </TableCell>
+                              <TableCell className="font-mono">
+                                {issue.isCommentedByUser ? "yes" : "no"}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">{labels}</TableCell>
+                            </TableRow>
+                          );
+                        })
+                        : (
+                          <TableRow>
+                            <TableCell colSpan={13}>
+                              <Card className="border-dashed bg-secondary/30">
+                                <CardContent className="p-3 text-sm text-muted-foreground">
+                                  No issues available for this window.
+                                </CardContent>
+                              </Card>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
         </main>
         <script dangerouslySetInnerHTML={{ __html: buildClientScript() }} />
       </body>
@@ -1036,6 +858,6 @@ async function main() {
 
 main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`shadcn renderer failed: ${message}\n`);
+  process.stderr.write(`shadcn renderer failed: ${message}\\n`);
   process.exit(1);
 });

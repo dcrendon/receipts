@@ -206,9 +206,10 @@ Deno.test("buildRunReport applies deterministic impact scoring, ordering, and se
   assertEquals(report.html.includes("Week-over-week"), false);
   assertEquals(report.html.includes("vs previous"), false);
   assertStringIncludes(report.html, "DOMContentLoaded");
-  assertStringIncludes(report.html, "data-sidepanel");
+  assertEquals(report.html.includes("data-sidepanel"), false);
   assertStringIncludes(report.html, "data-search");
   assertStringIncludes(report.html, "data-filter-provider");
+  assertStringIncludes(report.html, "data-visible-count");
   assertStringIncludes(report.html, "data-row");
   assertEquals(report.coverage.sourceMode, "report");
   assertEquals(report.coverage.totalProviderCount, 3);
