@@ -33,12 +33,6 @@ interface AiNarrativeRequest {
   };
 }
 
-interface AiRewriteResponse {
-  headlineLead: string;
-  topHighlightWording: string[];
-  weeklyPointLeads: string[];
-}
-
 export interface AiNarrativeResult {
   headlineLead: string;
   topHighlightWording: string[];
@@ -57,6 +51,22 @@ interface OpenAIChatResponse {
     };
   }>;
 }
+
+type AiRewriteTaskKind = "headline" | "highlight" | "weeklyPoint";
+
+interface AiRewriteTask {
+  kind: AiRewriteTaskKind;
+  sourceText: string;
+  index?: number;
+  issueContext?: AiNarrativeIssuePayload;
+  supportingContext?: Record<string, unknown>;
+}
+
+const OPENAI_CHAT_COMPLETIONS_URL =
+  "https://api.openai.com/v1/chat/completions";
+
+const REWRITE_SYSTEM_PROMPT =
+  "You rewrite one status-report narrative line. Rewrite wording only. Preserve factual meaning exactly. Do not add new facts, counts, dates, issue keys, providers, or states. Return plain text only with no JSON, no markdown, and no bullet prefix.";
 
 const truncateSnippet = (value: string): string => {
   const cleaned = value.replace(/\s+/g, " ").trim();
@@ -87,115 +97,113 @@ const fallbackResult = (request: AiNarrativeRequest): AiNarrativeResult => ({
   },
 });
 
-const extractJsonObject = (value: string): string => {
+const extractTextContent = (value: string): string => {
   const trimmed = value.trim();
-  if (trimmed.startsWith("{")) {
-    return trimmed;
-  }
 
-  const blockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const blockMatch = trimmed.match(/```(?:[a-z0-9_-]+)?\s*([\s\S]*?)\s*```/i);
   if (blockMatch?.[1]) {
     return blockMatch[1].trim();
-  }
-
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    return trimmed.slice(start, end + 1);
   }
 
   return trimmed;
 };
 
-const isStringArray = (
-  value: unknown,
-  expectedLength: number,
-): value is string[] => {
-  return (
-    Array.isArray(value) &&
-    value.length === expectedLength &&
-    value.every((entry) => typeof entry === "string" && entry.trim().length > 0)
-  );
+const sanitizeRewriteText = (value: string): string => {
+  let cleaned = extractTextContent(value);
+  cleaned = cleaned.replace(/\r?\n+/g, " ").trim();
+  cleaned = cleaned.replace(/^[-*•]\s+/, "").trim();
+
+  const wrappedByQuote = (left: string, right: string) =>
+    cleaned.startsWith(left) && cleaned.endsWith(right) && cleaned.length >= 2;
+
+  if (
+    wrappedByQuote('"', '"') || wrappedByQuote("'", "'") ||
+    wrappedByQuote("`", "`")
+  ) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+
+  if (!cleaned) {
+    throw new Error("OpenAI response rewrite text was empty.");
+  }
+
+  return cleaned;
 };
 
-const parseRewriteResponse = (
-  rawContent: string,
+const summarizeIssueKeys = (issues: ReportIssueView[]): string[] =>
+  issues.slice(0, 6).map((issue) => issue.key);
+
+const buildRewritePrompt = (
   request: AiNarrativeRequest,
-): AiRewriteResponse => {
-  const parsed = JSON.parse(extractJsonObject(rawContent)) as Record<
-    string,
-    unknown
-  >;
-
-  const headlineLead = typeof parsed.headlineLead === "string"
-    ? parsed.headlineLead.trim()
-    : "";
-
-  if (!headlineLead) {
-    throw new Error("AI response missing headlineLead.");
-  }
-
-  if (
-    !isStringArray(
-      parsed.topHighlightWording,
-      request.topHighlightWording.length,
-    )
-  ) {
-    throw new Error(
-      "AI response topHighlightWording did not match expected structure.",
-    );
-  }
-
-  if (
-    !isStringArray(parsed.weeklyPointLeads, request.weeklyPointLeads.length)
-  ) {
-    throw new Error(
-      "AI response weeklyPointLeads did not match expected structure.",
-    );
-  }
-
-  return {
-    headlineLead,
-    topHighlightWording: parsed.topHighlightWording,
-    weeklyPointLeads: parsed.weeklyPointLeads,
-  };
-};
-
-const buildPrompt = (request: AiNarrativeRequest): string => {
-  const payload = {
+  task: AiRewriteTask,
+): string => {
+  const shared = {
     context: request.context,
-    instructions: {
-      guardrails: [
-        "Rewrite wording only.",
-        "Do not add, remove, reorder, or replace issues.",
-        "Do not alter counts, dates, impact scores, or provider totals.",
-        "Keep output concise and executive-friendly.",
-      ],
-      outputShape: {
-        headlineLead: "string",
-        topHighlightWording: `string[${request.topHighlightWording.length}]`,
-        weeklyPointLeads: `string[${request.weeklyPointLeads.length}]`,
+    taskKind: task.kind,
+    taskIndex: task.index ?? null,
+    sourceText: task.sourceText,
+    rules: [
+      "Rewrite wording only.",
+      "Keep factual meaning unchanged.",
+      "Do not add/remove issue references, counts, dates, or state facts.",
+      "Keep output concise and executive-friendly.",
+      "Return plain text only.",
+    ],
+  };
+
+  if (task.kind === "headline") {
+    return JSON.stringify(
+      {
+        ...shared,
+        supportingContext: {
+          topHighlightKeys: summarizeIssueKeys(request.payload.highlights),
+          collaborationKeys: summarizeIssueKeys(request.payload.collaboration),
+          riskKeys: summarizeIssueKeys(request.payload.risks),
+        },
       },
-    },
-    deterministic: {
-      headlineLead: request.headlineLead,
-      topHighlightWording: request.topHighlightWording,
-      weeklyPointLeads: request.weeklyPointLeads,
-    },
-    issuePayload: {
-      highlights: request.payload.highlights.map(toIssuePayload),
-      collaboration: request.payload.collaboration.map(toIssuePayload),
-      risks: request.payload.risks.map(toIssuePayload),
+      null,
+      2,
+    );
+  }
+
+  if (task.kind === "highlight") {
+    return JSON.stringify(
+      {
+        ...shared,
+        issueContext: task.issueContext,
+      },
+      null,
+      2,
+    );
+  }
+
+  const payload = {
+    ...shared,
+    supportingContext: {
+      topHighlightKeys: summarizeIssueKeys(request.payload.highlights),
+      collaborationKeys: summarizeIssueKeys(request.payload.collaboration),
+      riskKeys: summarizeIssueKeys(request.payload.risks),
+      ...task.supportingContext,
     },
   };
 
   return JSON.stringify(payload, null, 2);
 };
 
-const rewriteWithOpenAI = async (
+const taskLabel = (task: AiRewriteTask): string => {
+  if (task.index === undefined) {
+    return task.kind;
+  }
+  return `${task.kind}[${task.index + 1}]`;
+};
+
+const rewriteTextWithOpenAI = async (
   request: AiNarrativeRequest,
-): Promise<AiNarrativeResult> => {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  task: AiRewriteTask,
+): Promise<string> => {
+  const prompt = buildRewritePrompt(request, task);
+
+  const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -204,23 +212,45 @@ const rewriteWithOpenAI = async (
     body: JSON.stringify({
       model: request.model,
       temperature: 0.2,
-      response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
-          content:
-            "You rewrite status-report narrative text. Preserve factual meaning, counts, ordering, and selected issues exactly.",
+          content: REWRITE_SYSTEM_PROMPT,
         },
         {
           role: "user",
-          content: buildPrompt(request),
+          content: prompt,
         },
       ],
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI request failed (${response.status}).`);
+    let details = "";
+    try {
+      const errorBody = await response.json() as {
+        error?: { message?: string; type?: string; code?: string };
+      };
+      if (errorBody?.error) {
+        const code = errorBody.error.code
+          ? ` code=${errorBody.error.code}`
+          : "";
+        const type = errorBody.error.type
+          ? ` type=${errorBody.error.type}`
+          : "";
+        const message = errorBody.error.message
+          ? ` message=${errorBody.error.message}`
+          : "";
+        details = `${code}${type}${message}`.trim();
+      }
+    } catch {
+      // ignore JSON parsing errors on non-JSON responses
+    }
+
+    const suffix = details ? ` ${details}` : "";
+    throw new Error(
+      `OpenAI request failed (${response.status}) using model "${request.model}".${suffix}`,
+    );
   }
 
   const body = await response.json() as OpenAIChatResponse;
@@ -229,18 +259,79 @@ const rewriteWithOpenAI = async (
     throw new Error("OpenAI response did not include message content.");
   }
 
-  const rewritten = parseRewriteResponse(content, request);
+  return sanitizeRewriteText(content);
+};
+
+const runRewriteTask = async (
+  request: AiNarrativeRequest,
+  task: AiRewriteTask,
+): Promise<string | undefined> => {
+  try {
+    return await rewriteTextWithOpenAI(request, task);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (request.mode === "on") {
+      throw new Error(`AI rewrite failed for ${taskLabel(task)}: ${message}`);
+    }
+
+    console.warn(`AI rewrite skipped for ${taskLabel(task)}: ${message}`);
+    return undefined;
+  }
+};
+
+const rewriteWithOpenAI = async (
+  request: AiNarrativeRequest,
+): Promise<AiNarrativeResult> => {
+  let headlineLead = request.headlineLead;
+  const topHighlightWording = [...request.topHighlightWording];
+  const weeklyPointLeads = [...request.weeklyPointLeads];
+
+  const rewrittenHeadline = await runRewriteTask(request, {
+    kind: "headline",
+    sourceText: request.headlineLead,
+  });
+  if (rewrittenHeadline !== undefined) {
+    headlineLead = rewrittenHeadline;
+  }
+
+  for (let index = 0; index < topHighlightWording.length; index++) {
+    const issue = request.payload.highlights[index];
+    const rewritten = await runRewriteTask(request, {
+      kind: "highlight",
+      index,
+      sourceText: topHighlightWording[index],
+      issueContext: issue ? toIssuePayload(issue) : undefined,
+    });
+    if (rewritten !== undefined) {
+      topHighlightWording[index] = rewritten;
+    }
+  }
+
+  for (let index = 0; index < weeklyPointLeads.length; index++) {
+    const rewritten = await runRewriteTask(request, {
+      kind: "weeklyPoint",
+      index,
+      sourceText: weeklyPointLeads[index],
+      supportingContext: {
+        relatedHighlightKey: request.payload.highlights[index]?.key ?? null,
+        relatedRiskKey: request.payload.risks[index]?.key ?? null,
+      },
+    });
+    if (rewritten !== undefined) {
+      weeklyPointLeads[index] = rewritten;
+    }
+  }
 
   return {
-    headlineLead: rewritten.headlineLead,
-    topHighlightWording: rewritten.topHighlightWording,
-    weeklyPointLeads: rewritten.weeklyPointLeads,
+    headlineLead,
+    topHighlightWording,
+    weeklyPointLeads,
     assisted: {
-      headline: rewritten.headlineLead !== request.headlineLead,
-      highlights: rewritten.topHighlightWording.some((line, index) =>
+      headline: headlineLead !== request.headlineLead,
+      highlights: topHighlightWording.some((line, index) =>
         line !== request.topHighlightWording[index]
       ),
-      weeklyTalkingPoints: rewritten.weeklyPointLeads.some((line, index) =>
+      weeklyTalkingPoints: weeklyPointLeads.some((line, index) =>
         line !== request.weeklyPointLeads[index]
       ),
     },
