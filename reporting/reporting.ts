@@ -100,6 +100,7 @@ export interface RunReport {
   html: string;
   reportFormat: ReportFormat;
   narrative: NarrativeSections;
+  context: { startDate: string; endDate: string };
 }
 
 export interface ReportContext {
@@ -848,83 +849,66 @@ const firstSentenceFromSnippet = (value: string): string => {
   return first;
 };
 
-const summarizeContributionSignals = (issue: ReportIssueView): string => {
-  const modes = [
-    issue.isAuthoredByUser ? "authored" : null,
-    issue.isAssignedToUser ? "assigned" : null,
-    issue.isCommentedByUser ? `commented (${issue.userCommentCount})` : null,
-  ].filter(Boolean);
-
-  return modes.length ? modes.join(", ") : "tracked";
-};
-
 const highlightNarrativeFallback = (issue: ReportIssueView): string => {
   const snippet = firstSentenceFromSnippet(issue.descriptionSnippet);
-  const snippetClause = snippet ? ` Work detail: ${snippet}.` : "";
-  const contribution = summarizeContributionSignals(issue);
 
   if (issue.bucket === "completed") {
-    return `${issue.key} (${issue.title}) reached ${issue.state}; user ${contribution}; impact ${issue.impactScore}.${snippetClause}`;
+    return snippet
+      ? `Closed ${issue.key}: ${snippet}.`
+      : `${issue.key} (${issue.title}) completed, moved to ${issue.state}.`;
   }
 
   if (issue.bucket === "blocked") {
-    return `${issue.key} (${issue.title}) is blocked in ${issue.state}; requires unblock follow-up; user ${contribution}; impact ${issue.impactScore}.${snippetClause}`;
+    return snippet
+      ? `${issue.key} is blocked: ${snippet}. Needs follow-up.`
+      : `${issue.key} (${issue.title}) is blocked in ${issue.state} and requires follow-up.`;
   }
 
   if (issue.bucket === "active") {
-    return `${issue.key} (${issue.title}) is in progress (${issue.state}); user ${contribution}; impact ${issue.impactScore}.${snippetClause}`;
+    return snippet
+      ? `${issue.key} in progress: ${snippet}.`
+      : `${issue.key} (${issue.title}) is actively being worked in ${issue.state}.`;
   }
 
-  return `${issue.key} (${issue.title}) remains in ${issue.state}; user ${contribution}; impact ${issue.impactScore}.${snippetClause}`;
+  return snippet
+    ? `${issue.key}: ${snippet}.`
+    : `${issue.key} (${issue.title}) is in ${issue.state}.`;
 };
 
 const buildHeadlineLead = (
   summary: ReportSummary,
-  context: ReportContext,
+  _context: ReportContext,
 ): string => {
   if (summary.totalIssues === 0) {
     return "No ticket activity was captured in the selected reporting window.";
   }
 
-  const completed = summary.topActivityHighlights.find((issue) =>
-    issue.bucket === "completed"
-  );
-  const active = summary.topActivityHighlights.find((issue) =>
-    issue.bucket === "active"
-  );
-  const blocked = summary.risksAndFollowUps[0];
+  const parts: string[] = [];
 
-  const statements: string[] = [];
-  if (completed) {
-    statements.push(
-      `Completed ${completed.key} (${completed.title}) with state ${completed.state}.`,
+  if (summary.byBucket.completed > 0) {
+    const topCompleted = summary.topActivityHighlights.find((issue) =>
+      issue.bucket === "completed"
     );
-  }
-  if (active) {
-    statements.push(
-      `Advanced ${active.key} (${active.title}) in ${active.state}.`,
-    );
-  }
-  if (blocked) {
-    statements.push(
-      `Blocker remains on ${blocked.key} (${blocked.title}) and needs follow-up.`,
+    parts.push(
+      summary.byBucket.completed === 1 && topCompleted
+        ? `Completed ${topCompleted.key}`
+        : `Completed ${summary.byBucket.completed} item${summary.byBucket.completed > 1 ? "s" : ""}`,
     );
   }
 
-  if (!statements.length) {
-    const top = summary.topActivityHighlights[0] ?? summary.latestUpdated[0];
-    if (top) {
-      statements.push(
-        `Primary tracked ticket was ${top.key} (${top.title}) in ${top.state}.`,
-      );
-    }
+  if (summary.byBucket.active > 0) {
+    parts.push(`${summary.byBucket.active} in progress`);
   }
 
-  if (context.reportProfile === "showcase") {
-    statements.unshift("This window highlights concrete ticket outcomes.");
+  if (summary.byBucket.blocked > 0) {
+    parts.push(`${summary.byBucket.blocked} blocked`);
   }
 
-  return statements.join(" ");
+  if (!parts.length) {
+    return `${summary.totalIssues} issue${summary.totalIssues > 1 ? "s" : ""} tracked this window.`;
+  }
+
+  return parts.join(", ") + ".";
 };
 
 const buildDeterministicNarrative = (
@@ -962,17 +946,16 @@ const buildDeterministicNarrative = (
 
   const collaborationHighlights = summary.collaborationHighlights.map(
     (issue) => {
-      const modes = [
-        issue.isAuthoredByUser ? "authored" : null,
-        issue.isAssignedToUser ? "assigned" : null,
-        issue.isCommentedByUser
-          ? `commented (${issue.userCommentCount})`
-          : null,
-      ].filter(Boolean).join(", ");
+      const actions: string[] = [];
+      if (issue.isAuthoredByUser) actions.push("authored");
+      if (issue.isAssignedToUser) actions.push("assigned");
+      if (issue.isCommentedByUser) {
+        actions.push(
+          `${issue.userCommentCount} comment${issue.userCommentCount > 1 ? "s" : ""}`,
+        );
+      }
 
-      return `[${formatProvider(issue.provider)}] ${issue.key}: ${
-        modes || "contributed"
-      }; score ${issue.impactScore}; state ${issue.state}.`;
+      return `${issue.key}: ${actions.join(", ") || "contributed"} (${formatProvider(issue.provider)}, ${issue.bucket}).`;
     },
   );
 
@@ -985,14 +968,9 @@ const buildDeterministicNarrative = (
   const topLabel = summary.topLabels[0]?.label;
   const strongest = summary.topActivityHighlights[0];
 
-  const weeklyPointLeads = [
-    "Delivery balance this window.",
-    "Cross-provider coverage.",
-    "Direct contribution footprint.",
-    "Urgency and impact signals.",
-    "Most significant item.",
-    "Freshness near window end.",
-  ];
+  const activeProviders = (["gitlab", "jira", "github"] as const)
+    .filter((p) => summary.byProvider[p] > 0)
+    .map(formatProvider);
 
   const recentWindowCutoff = parseTimestamp(context.endDate) -
     (48 * 60 * 60 * 1000);
@@ -1000,6 +978,23 @@ const buildDeterministicNarrative = (
     const updatedAtMs = parseTimestamp(issue.updatedAt);
     return updatedAtMs > 0 && updatedAtMs >= recentWindowCutoff;
   }).length;
+
+  const weeklyPointLeads = [
+    `${summary.byBucket.completed} completed, ${summary.byBucket.active} active, ${summary.byBucket.blocked} blocked this window.`,
+    providerCount > 1
+      ? `Activity spans ${providerCount} providers: ${activeProviders.join(", ")}.`
+      : `All activity from ${activeProviders[0] ?? "1 provider"}.`,
+    summary.contribution.contributedIssues > 0
+      ? `User contributed to ${summary.contribution.contributedIssues} issue${summary.contribution.contributedIssues > 1 ? "s" : ""} with ${summary.contribution.totalUserComments} comment${summary.contribution.totalUserComments !== 1 ? "s" : ""}.`
+      : "No direct user contribution detected this window.",
+    summary.highPriorityLabelIssues > 0
+      ? `${summary.highPriorityLabelIssues} high-priority label issue${summary.highPriorityLabelIssues > 1 ? "s" : ""} in scope.`
+      : "No high-priority labels flagged this window.",
+    strongest
+      ? `Top-ranked: ${strongest.key} with impact score ${strongest.impactScore}.`
+      : "No ranked highlights available.",
+    `${recentCount} issue${recentCount !== 1 ? "s" : ""} updated in the last 48 hours.`,
+  ];
 
   const weeklyPointBullets = [
     [
@@ -1124,34 +1119,6 @@ const IMPACT_LEGEND_ITEMS = [
   "Score inputs: completed +40, active +20, blocked +10, authored +15, assigned +10, user comments +2 each (max +10), high-impact labels +12, updated in final 48h +8.",
 ];
 
-const tooltipAttributes = (detail: string): string => {
-  const safe = escapeHtml(detail);
-  return `title="${safe}" data-tip="${safe}"`;
-};
-
-const capitalizeBucket = (value: ActivityBucket): string =>
-  `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
-
-const bucketToneClass = (value: ActivityBucket): string => {
-  if (value === "completed") return "tone-completed";
-  if (value === "blocked") return "tone-blocked";
-  if (value === "active") return "tone-active";
-  return "tone-other";
-};
-
-const parseRiskLine = (value: string): { context: string; action: string } => {
-  const match = value.match(/^\[([^\]]+)\]\s*(.+)$/);
-  if (!match) {
-    return {
-      context: "Follow-up",
-      action: value,
-    };
-  }
-  return {
-    context: match[1],
-    action: match[2],
-  };
-};
 
 export const buildReportMarkdown = (
   summary: ReportSummary,
@@ -1278,1047 +1245,6 @@ export const buildReportMarkdown = (
 
   lines.push("");
   return lines.join("\n");
-};
-
-const escapeHtml = (value: string): string => {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-};
-
-const renderHtmlIssueCard = (
-  issue: ReportIssueView,
-  wording: string,
-): string => {
-  const labels = issue.labels.length
-    ? issue.labels.map((label) =>
-      `<span class="ui-badge ui-badge-subtle" ${
-        tooltipAttributes(
-          `Label ${label}. High-impact labels contribute +12 to impact score.`,
-        )
-      }>#${escapeHtml(label)}</span>`
-    ).join("")
-    : "";
-
-  const attributionModes = [
-    issue.isAuthoredByUser ? "authored" : null,
-    issue.isAssignedToUser ? "assigned" : null,
-    issue.isCommentedByUser ? `commented (${issue.userCommentCount})` : null,
-  ].filter(Boolean).join(", ");
-
-  const issueTitle = issue.url
-    ? `<a class="issue-link" href="${escapeHtml(issue.url)}" ${
-      tooltipAttributes("Open issue in provider.")
-    }>${escapeHtml(issue.key)}</a>`
-    : `<span class="issue-link" ${
-      tooltipAttributes("Issue key in provider.")
-    }>${escapeHtml(issue.key)}</span>`;
-
-  const detailsTip = `${
-    formatProvider(issue.provider)
-  } ${issue.key}. Bucket ${issue.bucket}. Impact ${issue.impactScore}. Updated ${
-    formatHumanDateTime(issue.updatedAt)
-  }. ${
-    attributionModes || "No direct attribution match for configured usernames."
-  }`;
-
-  const attributionPill = attributionModes
-    ? `<span class="ui-badge ui-badge-primary" ${
-      tooltipAttributes("How the configured user contributed to this issue.")
-    }>${escapeHtml(attributionModes)}</span>`
-    : `<span class="ui-badge ui-badge-muted" ${
-      tooltipAttributes("No direct attribution match for configured usernames.")
-    }>no direct attribution</span>`;
-
-  return `
-    <article class="issue-card ${bucketToneClass(issue.bucket)}" ${
-    tooltipAttributes(detailsTip)
-  }>
-      <header class="issue-card-head">
-        <p class="issue-kicker">${
-    escapeHtml(formatProvider(issue.provider))
-  }</p>
-        <div class="impact-chip" ${
-    tooltipAttributes(
-      "Deterministic impact score from state, attribution, comments, labels, and recency.",
-    )
-  }><span>Impact</span><strong>${issue.impactScore}</strong></div>
-      </header>
-      <h3 class="issue-title">${issueTitle} <span class="issue-title-copy">${
-    escapeHtml(issue.title)
-  }</span></h3>
-      <p class="issue-meta">${escapeHtml(issue.bucket)} • ${
-    escapeHtml(issue.state)
-  } • Updated ${escapeHtml(formatHumanDateTime(issue.updatedAt))}</p>
-      <p class="issue-wording" ${
-    tooltipAttributes(
-      "Deterministic/AI-rewritten wording for this highlight only.",
-    )
-  }>${escapeHtml(wording)}</p>
-      <div class="issue-pill-row">
-        <span class="ui-badge ui-badge-bucket ${
-    bucketToneClass(issue.bucket)
-  }" ${tooltipAttributes("State bucket used in scoring.")}>${
-    escapeHtml(capitalizeBucket(issue.bucket))
-  }</span>
-        ${attributionPill}
-      </div>
-      ${labels ? `<div class="issue-label-row">${labels}</div>` : ""}
-    </article>
-  `;
-};
-
-export const buildReportHtml = (
-  summary: ReportSummary,
-  narrative: NarrativeSections,
-  context: ReportContext,
-  normalizedIssues: NormalizedIssue[],
-): string => {
-  const kpiItems: Array<{ label: string; value: string; detail: string }> = [
-    {
-      label: "Total Issues",
-      value: String(summary.totalIssues),
-      detail: "Total normalized issues in this report window.",
-    },
-    {
-      label: "Completed",
-      value: String(summary.byBucket.completed),
-      detail: "Issues bucketed as completed (+40 base score each).",
-    },
-    {
-      label: "Active",
-      value: String(summary.byBucket.active),
-      detail: "Issues bucketed as active (+20 base score each).",
-    },
-    {
-      label: "Blocked",
-      value: String(summary.byBucket.blocked),
-      detail: "Issues bucketed as blocked (+10 base score each).",
-    },
-    {
-      label: "Contributed Issues",
-      value: String(summary.contribution.contributedIssues),
-      detail:
-        "Issues where configured user is author, assignee, or comment author.",
-    },
-    {
-      label: "User Comments",
-      value: String(summary.contribution.totalUserComments),
-      detail: "Total matching comments by configured user across all issues.",
-    },
-    {
-      label: "High-Priority Label Issues",
-      value: String(summary.highPriorityLabelIssues),
-      detail:
-        "Issues containing priority/risk labels (p0, p1, sev, incident, security, customer, prod, revenue).",
-    },
-    {
-      label: "GitLab Issues",
-      value: String(summary.byProvider.gitlab),
-      detail: "Number of GitLab issues included.",
-    },
-    {
-      label: "Jira Issues",
-      value: String(summary.byProvider.jira),
-      detail: "Number of Jira issues included.",
-    },
-    {
-      label: "GitHub Issues",
-      value: String(summary.byProvider.github),
-      detail: "Number of GitHub issues included.",
-    },
-  ];
-
-  const topCards = summary.topActivityHighlights.length
-    ? summary.topActivityHighlights
-      .map((issue, index) =>
-        renderHtmlIssueCard(issue, narrative.topHighlightWording[index] ?? "")
-      )
-      .join("\n")
-    : '<p class="empty-state" title="No issues qualified for top highlight selection." data-tip="No issues qualified for top highlight selection.">No highlights selected.</p>';
-
-  const riskItems = narrative.risksAndFollowUps.length
-    ? narrative.risksAndFollowUps
-      .map((line, index) => {
-        const parsed = parseRiskLine(line);
-        return `<li class="risk-card" ${
-          tooltipAttributes(
-            `Follow-up ${
-              index + 1
-            }. Context: ${parsed.context}. Action: ${parsed.action}`,
-          )
-        }><span class="risk-index">${
-          index + 1
-        }</span><div class="risk-copy"><p class="risk-context">${
-          escapeHtml(parsed.context)
-        }</p><p class="risk-action">${
-          escapeHtml(parsed.action)
-        }</p></div></li>`;
-      })
-      .join("")
-    : '<li class="empty-state" title="No follow-up actions are currently required." data-tip="No follow-up actions are currently required."><p>No immediate follow-up actions required.</p></li>';
-
-  const talkingItems = narrative.weeklyTalkingPoints.length
-    ? narrative.weeklyTalkingPoints
-      .map((point) => {
-        const bullets = point.bullets.length
-          ? point.bullets.map((bullet) =>
-            `<li ${tooltipAttributes(`Talking-point detail: ${bullet}`)}>${
-              escapeHtml(bullet)
-            }</li>`
-          ).join("")
-          : '<li class="empty" title="No additional detail was generated." data-tip="No additional detail was generated.">No additional detail.</li>';
-        return `<article class="talk-card ui-card" ${
-          tooltipAttributes(`Talking point: ${point.lead}`)
-        }><h4>${escapeHtml(point.lead)}</h4><ul>${bullets}</ul></article>`;
-      })
-      .join("")
-    : '<p class="empty-state" title="No talking points were generated." data-tip="No talking points were generated.">No talking points generated.</p>';
-
-  const collaborationBullets = narrative.collaborationHighlights.length
-    ? narrative.collaborationHighlights
-      .map((line) =>
-        `<li class="collab-item" ${
-          tooltipAttributes(`Collaboration detail: ${line}`)
-        }>${escapeHtml(line)}</li>`
-      )
-      .join("")
-    : '<li class="empty" title="No additional collaboration narrative available." data-tip="No additional collaboration narrative available.">No additional collaboration narrative available.</li>';
-
-  const appendixRows = normalizedIssues.length
-    ? normalizedIssues
-      .map((issue, index) => {
-        const keyCell = issue.url
-          ? `<a href="${escapeHtml(issue.url)}" ${
-            tooltipAttributes("Open issue in provider.")
-          }>${escapeHtml(issue.key)}</a>`
-          : `<span ${tooltipAttributes("Issue key in provider.")}>${
-            escapeHtml(issue.key)
-          }</span>`;
-
-        const rowTip = `${
-          formatProvider(issue.provider)
-        } ${issue.key}. State ${issue.state}. Bucket ${issue.bucket}. Impact ${issue.impactScore}. Updated ${
-          formatHumanDateTime(issue.updatedAt)
-        }.`;
-
-        return `<tr ${tooltipAttributes(rowTip)}>
-          <td class="mono">${index + 1}</td>
-          <td class="issue-cell">${keyCell}</td>
-          <td>${escapeHtml(formatProvider(issue.provider))}</td>
-          <td>${escapeHtml(issue.state)}</td>
-          <td><span class="ui-badge ui-badge-bucket inline-bucket ${
-          bucketToneClass(issue.bucket)
-        }">${escapeHtml(issue.bucket)}</span></td>
-          <td class="mono">${issue.impactScore}</td>
-          <td>${escapeHtml(formatHumanDateTime(issue.updatedAt))}</td>
-          <td class="mono">${issue.isAuthoredByUser ? "yes" : "no"}</td>
-          <td class="mono">${issue.isAssignedToUser ? "yes" : "no"}</td>
-          <td class="mono">${issue.isCommentedByUser ? "yes" : "no"}</td>
-        </tr>`;
-      })
-      .join("\n")
-    : '<tr><td colspan="10" class="empty-row">No issues available.</td></tr>';
-
-  const generatedAt = formatHumanDateTime(new Date().toISOString());
-  const windowLabel = `${formatHumanDate(context.startDate)} -> ${
-    formatHumanDate(context.endDate)
-  }`;
-  const impactLegend = IMPACT_LEGEND_ITEMS
-    .map((line) =>
-      `<li ${tooltipAttributes(`Impact scoring detail: ${line}`)}>${
-        escapeHtml(line)
-      }</li>`
-    )
-    .join("");
-
-  const providerBreakdown = [
-    { name: "GitLab", value: summary.byProvider.gitlab },
-    { name: "Jira", value: summary.byProvider.jira },
-    { name: "GitHub", value: summary.byProvider.github },
-  ];
-
-  const providerTotal = providerBreakdown.reduce(
-    (total, provider) => total + provider.value,
-    0,
-  );
-
-  const providerCards = providerBreakdown.map((provider) => {
-    const percentage = providerTotal
-      ? Math.round((provider.value / providerTotal) * 100)
-      : 0;
-    return `<article class="provider-card ui-card" ${
-      tooltipAttributes(`${provider.name} issue count: ${provider.value}.`)
-    }>
-      <p class="provider-name">${provider.name}</p>
-      <strong class="mono">${provider.value}</strong>
-      <div class="provider-track" aria-hidden="true"><span style="width: ${percentage}%"></span></div>
-    </article>`;
-  }).join("");
-
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Activity Report (ShadCN)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ["Manrope", "ui-sans-serif", "system-ui", "sans-serif"],
-              mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
-            },
-          },
-        },
-      };
-    </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-      :root {
-        --background: 30 33% 98%;
-        --foreground: 224 71% 4%;
-        --muted: 220 16% 47%;
-        --muted-foreground: 220 10% 38%;
-        --card: 0 0% 100%;
-        --card-foreground: 224 71% 4%;
-        --border: 220 13% 91%;
-        --input: 220 13% 91%;
-        --primary: 217 91% 60%;
-        --primary-foreground: 210 40% 98%;
-        --secondary: 210 40% 96%;
-        --secondary-foreground: 222 47% 11%;
-        --accent: 27 96% 61%;
-        --accent-foreground: 20 14% 4%;
-        --radius: 0.75rem;
-        --shadow-soft: 0 10px 35px rgba(15, 23, 42, 0.08);
-        --shadow-card: 0 4px 18px rgba(15, 23, 42, 0.07);
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        color: hsl(var(--foreground));
-        font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
-        background:
-          radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.18), transparent 28%),
-          radial-gradient(circle at 95% 5%, rgba(249, 115, 22, 0.17), transparent 30%),
-          radial-gradient(circle at 65% 110%, rgba(14, 165, 233, 0.15), transparent 38%),
-          hsl(var(--background));
-      }
-      body::before {
-        content: "";
-        position: fixed;
-        inset: -20vh -20vw;
-        background:
-          linear-gradient(110deg, rgba(59, 130, 246, 0.07), transparent 45%),
-          linear-gradient(310deg, rgba(249, 115, 22, 0.08), transparent 55%);
-        pointer-events: none;
-        filter: blur(20px);
-      }
-      .shell {
-        max-width: 1220px;
-        margin: 0 auto;
-        padding: clamp(1rem, 2.2vw, 1.8rem);
-        position: relative;
-        z-index: 1;
-      }
-      .ui-card {
-        border: 1px solid hsl(var(--border));
-        background: hsl(var(--card));
-        border-radius: var(--radius);
-        box-shadow: var(--shadow-card);
-      }
-      .section-card {
-        border: 1px solid hsl(var(--border));
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 251, 245, 0.86));
-        border-radius: calc(var(--radius) + 0.2rem);
-        padding: clamp(0.9rem, 1.7vw, 1.25rem);
-        box-shadow: var(--shadow-soft);
-        margin-bottom: 0.95rem;
-        position: relative;
-        overflow: hidden;
-      }
-      .hero-card {
-        display: grid;
-        gap: 1rem;
-      }
-      .hero-card::after {
-        content: "";
-        position: absolute;
-        width: 280px;
-        height: 280px;
-        border-radius: 999px;
-        background: radial-gradient(circle, rgba(59, 130, 246, 0.15), transparent 68%);
-        right: -110px;
-        top: -120px;
-        pointer-events: none;
-      }
-      .hero-grid {
-        display: grid;
-        gap: 0.9rem;
-      }
-      .hero-eyebrow {
-        margin: 0;
-        font-size: 0.76rem;
-        text-transform: uppercase;
-        letter-spacing: 0.15em;
-        color: hsl(var(--primary));
-        font-weight: 800;
-      }
-      .hero-title {
-        margin: 0.12rem 0 0;
-        font-size: clamp(2rem, 5.8vw, 3.3rem);
-        line-height: 1;
-        letter-spacing: -0.03em;
-      }
-      .hero-meta {
-        margin: 0.66rem 0 0;
-        color: hsl(var(--muted-foreground));
-        font-size: 0.93rem;
-      }
-      .headline {
-        margin: 0.62rem 0 0;
-        font-size: clamp(1rem, 2.25vw, 1.22rem);
-        line-height: 1.47;
-        max-width: 64ch;
-      }
-      .hero-stat-grid {
-        display: grid;
-        gap: 0.6rem;
-      }
-      .hero-stat {
-        border: 1px solid hsl(var(--border));
-        background: hsl(var(--card));
-        border-radius: calc(var(--radius) - 0.12rem);
-        padding: 0.6rem 0.72rem;
-        box-shadow: var(--shadow-card);
-      }
-      .hero-stat p {
-        margin: 0;
-        font-size: 0.76rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: hsl(var(--muted-foreground));
-      }
-      .hero-stat strong {
-        font-size: 1.68rem;
-        line-height: 1;
-        display: block;
-        margin-top: 0.28rem;
-      }
-      .provider-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 0.58rem;
-      }
-      .provider-card {
-        padding: 0.56rem 0.62rem;
-      }
-      .provider-name {
-        margin: 0;
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: hsl(var(--muted-foreground));
-      }
-      .provider-card strong {
-        display: inline-block;
-        margin: 0.2rem 0 0.36rem;
-        font-size: 1rem;
-      }
-      .provider-track {
-        width: 100%;
-        height: 0.36rem;
-        border-radius: 999px;
-        background: hsl(var(--secondary));
-        overflow: hidden;
-      }
-      .provider-track span {
-        display: block;
-        height: 100%;
-        border-radius: inherit;
-        background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
-      }
-      .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 0.62rem;
-      }
-      .kpi-card {
-        padding: 0.72rem;
-      }
-      .kpi-card p {
-        margin: 0;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: hsl(var(--muted-foreground));
-      }
-      .kpi-card strong {
-        display: block;
-        margin-top: 0.22rem;
-        font-size: 1.28rem;
-        line-height: 1.12;
-      }
-      .section-title {
-        margin: 0 0 0.68rem;
-        font-size: clamp(1.05rem, 2.2vw, 1.32rem);
-        letter-spacing: -0.015em;
-      }
-      .legend-list {
-        margin: 0;
-        padding-left: 1.15rem;
-        color: hsl(var(--muted-foreground));
-        columns: 2 280px;
-        gap: 1.4rem;
-      }
-      .legend-list li {
-        margin: 0.36rem 0;
-        break-inside: avoid;
-      }
-      .badge {
-        display: inline-block;
-        font-size: 0.71rem;
-        color: hsl(var(--primary-foreground));
-        background: hsl(var(--primary));
-        border: 1px solid hsl(var(--primary));
-        border-radius: 999px;
-        padding: 0.12rem 0.46rem;
-        margin-left: 0.38rem;
-        vertical-align: middle;
-        font-family: "JetBrains Mono", monospace;
-      }
-      .highlight-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 0.72rem;
-      }
-      .issue-card {
-        border: 1px solid hsl(var(--border));
-        border-left-width: 5px;
-        border-radius: calc(var(--radius) - 0.05rem);
-        background: hsl(var(--card));
-        padding: 0.78rem;
-        box-shadow: var(--shadow-card);
-      }
-      .issue-card.tone-completed { border-left-color: #059669; }
-      .issue-card.tone-active { border-left-color: #2563eb; }
-      .issue-card.tone-blocked { border-left-color: #ea580c; }
-      .issue-card.tone-other { border-left-color: #64748b; }
-      .issue-card-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: start;
-        gap: 0.72rem;
-      }
-      .issue-kicker {
-        margin: 0;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color: hsl(var(--muted-foreground));
-        font-family: "JetBrains Mono", monospace;
-      }
-      .issue-title {
-        margin: 0.36rem 0 0;
-        font-size: 1rem;
-        line-height: 1.3;
-      }
-      .issue-link {
-        color: hsl(var(--primary));
-        text-decoration: none;
-        font-weight: 700;
-      }
-      .issue-link:hover { text-decoration: underline; }
-      .issue-title-copy {
-        color: hsl(var(--foreground));
-        font-weight: 500;
-      }
-      .impact-chip {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.68rem;
-        display: inline-flex;
-        gap: 0.33rem;
-        align-items: baseline;
-        background: rgba(37, 99, 235, 0.1);
-        color: #1d4ed8;
-        border: 1px solid rgba(37, 99, 235, 0.26);
-        border-radius: 999px;
-        padding: 0.16rem 0.48rem;
-        white-space: nowrap;
-      }
-      .impact-chip strong {
-        font-size: 0.85rem;
-        line-height: 1;
-      }
-      .issue-meta {
-        margin: 0.4rem 0 0;
-        font-size: 0.8rem;
-        color: hsl(var(--muted-foreground));
-      }
-      .issue-wording {
-        margin: 0.5rem 0 0;
-        line-height: 1.46;
-      }
-      .issue-pill-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-        margin-top: 0.62rem;
-      }
-      .ui-badge {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.68rem;
-        border-radius: 999px;
-        padding: 0.12rem 0.46rem;
-        border: 1px solid transparent;
-      }
-      .ui-badge-primary {
-        background: rgba(37, 99, 235, 0.12);
-        color: #1d4ed8;
-        border-color: rgba(37, 99, 235, 0.26);
-      }
-      .ui-badge-muted {
-        background: hsl(var(--secondary));
-        color: hsl(var(--muted-foreground));
-        border-color: hsl(var(--border));
-      }
-      .ui-badge-subtle {
-        background: rgba(249, 115, 22, 0.08);
-        color: #9a3412;
-        border-color: rgba(249, 115, 22, 0.25);
-      }
-      .ui-badge-bucket.tone-completed {
-        background: rgba(5, 150, 105, 0.12);
-        color: #047857;
-        border-color: rgba(5, 150, 105, 0.25);
-      }
-      .ui-badge-bucket.tone-active {
-        background: rgba(29, 78, 216, 0.12);
-        color: #1d4ed8;
-        border-color: rgba(29, 78, 216, 0.24);
-      }
-      .ui-badge-bucket.tone-blocked {
-        background: rgba(234, 88, 12, 0.13);
-        color: #c2410c;
-        border-color: rgba(234, 88, 12, 0.24);
-      }
-      .ui-badge-bucket.tone-other {
-        background: rgba(100, 116, 139, 0.12);
-        color: #475569;
-        border-color: rgba(100, 116, 139, 0.24);
-      }
-      .issue-label-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.34rem;
-        margin-top: 0.52rem;
-      }
-      .collab-layout {
-        display: grid;
-        gap: 0.72rem;
-      }
-      .collab-count {
-        border: 1px solid hsl(var(--border));
-        background: linear-gradient(140deg, rgba(37, 99, 235, 0.09), rgba(249, 115, 22, 0.08));
-        border-radius: calc(var(--radius) + 0.02rem);
-        padding: 0.78rem;
-      }
-      .collab-count p {
-        margin: 0;
-        color: hsl(var(--muted-foreground));
-        font-size: 0.82rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-      }
-      .collab-count strong {
-        display: block;
-        margin-top: 0.25rem;
-        font-size: clamp(2rem, 5.2vw, 2.95rem);
-        line-height: 1;
-      }
-      .collab-list {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-      }
-      .collab-item {
-        border: 1px solid hsl(var(--border));
-        border-radius: calc(var(--radius) - 0.12rem);
-        padding: 0.62rem 0.68rem;
-        margin-bottom: 0.45rem;
-        background: hsl(var(--card));
-        color: hsl(var(--muted-foreground));
-      }
-      .followup-list {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        display: grid;
-        gap: 0.62rem;
-      }
-      .risk-card {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 0.64rem;
-        align-items: start;
-        border-radius: calc(var(--radius) - 0.05rem);
-        border: 1px solid hsl(var(--border));
-        background: hsl(var(--card));
-        padding: 0.74rem;
-      }
-      .risk-index {
-        display: inline-flex;
-        justify-content: center;
-        align-items: center;
-        width: 1.5rem;
-        height: 1.5rem;
-        border-radius: 999px;
-        background: rgba(249, 115, 22, 0.18);
-        color: #9a3412;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.74rem;
-      }
-      .risk-copy p { margin: 0; }
-      .risk-context {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.72rem;
-        color: hsl(var(--muted-foreground));
-        margin-bottom: 0.18rem;
-      }
-      .risk-action {
-        line-height: 1.45;
-        font-weight: 500;
-      }
-      .talk-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 0.72rem;
-      }
-      .talk-card {
-        padding: 0.72rem;
-      }
-      .talk-card h4 {
-        margin: 0;
-        font-size: 0.98rem;
-      }
-      .talk-card ul {
-        margin: 0.5rem 0 0;
-        padding-left: 1rem;
-        color: hsl(var(--muted-foreground));
-      }
-      .talk-card li { margin: 0.29rem 0; }
-      .empty-state {
-        border: 1px dashed hsl(var(--border));
-        border-radius: calc(var(--radius) - 0.08rem);
-        background: rgba(255, 255, 255, 0.78);
-        margin: 0;
-        padding: 0.72rem;
-        color: hsl(var(--muted-foreground));
-        font-style: italic;
-      }
-      .empty {
-        color: hsl(var(--muted-foreground));
-        font-style: italic;
-      }
-      .table-wrap {
-        overflow-x: auto;
-        border: 1px solid hsl(var(--border));
-        border-radius: calc(var(--radius) + 0.02rem);
-        background: rgba(255, 255, 255, 0.92);
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.85rem;
-      }
-      th, td {
-        border-bottom: 1px solid rgba(23, 20, 42, 0.09);
-        text-align: left;
-        padding: 0.52rem 0.56rem;
-        vertical-align: top;
-      }
-      th {
-        background: hsl(var(--secondary));
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: hsl(var(--muted-foreground));
-      }
-      .mono {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 0.78rem;
-      }
-      .issue-cell a {
-        color: hsl(var(--primary));
-        font-weight: 700;
-        text-decoration: none;
-      }
-      .issue-cell a:hover { text-decoration: underline; }
-      .inline-bucket { font-size: 0.65rem; }
-      .empty-row {
-        text-align: center;
-        color: hsl(var(--muted-foreground));
-        padding: 0.82rem;
-      }
-      .generated {
-        margin-top: 0.64rem;
-        color: hsl(var(--muted-foreground));
-        font-size: 0.76rem;
-        font-family: "JetBrains Mono", monospace;
-      }
-      [data-tip] { position: relative; cursor: help; }
-      @media (hover: hover) and (pointer: fine) {
-        [data-tip]:hover::after, [data-tip]:focus-visible::after {
-          content: attr(data-tip);
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-          bottom: calc(100% + 10px);
-          width: max-content;
-          max-width: min(340px, 78vw);
-          padding: 0.5rem 0.6rem;
-          border-radius: 0.58rem;
-          border: 1px solid rgba(30, 64, 175, 0.25);
-          background: rgba(23, 20, 42, 0.95);
-          color: #fff;
-          font-size: 0.72rem;
-          line-height: 1.35;
-          z-index: 120;
-          white-space: normal;
-          box-shadow: 0 14px 28px rgba(15, 23, 42, 0.34);
-          pointer-events: none;
-        }
-        [data-tip]:hover::before, [data-tip]:focus-visible::before {
-          content: "";
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-          bottom: calc(100% + 5px);
-          border-width: 6px;
-          border-style: solid;
-          border-color: rgba(23, 20, 42, 0.95) transparent transparent transparent;
-          z-index: 120;
-          pointer-events: none;
-        }
-      }
-      @media (min-width: 930px) {
-        .hero-grid { grid-template-columns: 1.25fr 0.75fr; align-items: end; }
-        .collab-layout { grid-template-columns: minmax(240px, 320px) 1fr; align-items: start; }
-      }
-      @media (max-width: 760px) {
-        .shell { padding: 0.88rem; }
-        .section-card { border-radius: 1rem; }
-        .hero-title { font-size: clamp(1.72rem, 11vw, 2.2rem); }
-        .risk-card { grid-template-columns: 1fr; }
-        .risk-index { width: 1.35rem; height: 1.35rem; }
-        .legend-list { columns: 1; }
-      }
-      @media print {
-        body { background: #fff; }
-        body::before { display: none; }
-        .section-card, .issue-card, .talk-card, .kpi-card, .provider-card, .table-wrap, .risk-card, .collab-item {
-          border-color: #d1d5db;
-          box-shadow: none;
-          background: #fff;
-          backdrop-filter: none;
-        }
-        [data-tip]::before, [data-tip]::after { display: none !important; }
-        a { color: #000; text-decoration: none; }
-      }
-    </style>
-  </head>
-  <body>
-    <main class="shell">
-      <section class="section-card hero-card">
-        <div class="hero-grid">
-          <div>
-            <h1 class="hero-title" ${
-    tooltipAttributes(
-      "Deterministic activity report with optional AI wording enhancement for select narrative sections.",
-    )
-  }>
-              <span class="hero-eyebrow">ShadCN Report Surface</span><br />
-              Engineering Activity Report
-            </h1>
-            <p class="hero-meta">Window: ${
-    escapeHtml(windowLabel)
-  } | Fetch Mode: ${escapeHtml(context.fetchMode)} | Profile: ${
-    escapeHtml(context.reportProfile)
-  }</p>
-            <p class="hero-meta" ${
-    tooltipAttributes(
-      "Top-line summary synthesized from deterministic metrics.",
-    )
-  }>Executive Headline${
-    narrative.aiAssisted.executiveHeadline
-      ? ' <span class="badge">AI-assisted</span>'
-      : ""
-  }</p>
-            <p class="headline">${escapeHtml(narrative.executiveHeadline)}</p>
-          </div>
-          <aside class="hero-stat-grid">
-            <article class="hero-stat" ${
-    tooltipAttributes("Total normalized issues in this report window.")
-  }>
-              <p>Total Issues</p>
-              <strong class="mono">${summary.totalIssues}</strong>
-            </article>
-            <article class="hero-stat" ${
-    tooltipAttributes(
-      "Issues where configured user is author, assignee, or comment author.",
-    )
-  }>
-              <p>Contributed Issues</p>
-              <strong class="mono">${summary.contribution.contributedIssues}</strong>
-            </article>
-            <article class="hero-stat" ${
-    tooltipAttributes(
-      "Total matching comments by configured user across all issues.",
-    )
-  }>
-              <p>User Comments</p>
-              <strong class="mono">${summary.contribution.totalUserComments}</strong>
-            </article>
-          </aside>
-        </div>
-        <div class="provider-grid">${providerCards}</div>
-        <p class="generated">Generated: ${escapeHtml(generatedAt)}</p>
-      </section>
-
-      <section class="section-card">
-        <h2 class="section-title" ${
-    tooltipAttributes("Primary KPIs for this report window.")
-  }>KPI Row</h2>
-        <div class="kpi-grid">
-          ${
-    kpiItems.map((item) =>
-      `<article class="kpi-card ui-card" ${tooltipAttributes(item.detail)}><p>${
-        escapeHtml(item.label)
-      }</p><strong class="mono">${escapeHtml(item.value)}</strong></article>`
-    ).join("")
-  }
-        </div>
-      </section>
-
-      <section class="section-card">
-        <h2 class="section-title" ${
-    tooltipAttributes(
-      "How to interpret impact score values shown across highlights and appendix.",
-    )
-  }>Impact Legend</h2>
-        <ul class="legend-list">${impactLegend}</ul>
-      </section>
-
-      <section class="section-card">
-        <h2 class="section-title" ${
-    tooltipAttributes(
-      "Top ranked issues by deterministic impact score, then recency, then key.",
-    )
-  }>Top Activity Highlights${
-    narrative.aiAssisted.topHighlights
-      ? ' <span class="badge">AI-assisted</span>'
-      : ""
-  }</h2>
-        <div class="highlight-grid">${topCards}</div>
-      </section>
-
-      <section class="section-card">
-        <h2 class="section-title" ${
-    tooltipAttributes(
-      "Total issues where configured user was author, assignee, or comment contributor.",
-    )
-  }>Collaboration Highlights</h2>
-        <div class="collab-layout">
-          <article class="collab-count ui-card">
-            <p>Total collaborative issues</p>
-            <strong class="mono" ${
-    tooltipAttributes(
-      "Collaboration total for this report window.",
-    )
-  }>${summary.contribution.contributedIssues}</strong>
-          </article>
-          <ul class="collab-list">${collaborationBullets}</ul>
-        </div>
-      </section>
-
-      <section class="section-card">
-        <h2 class="section-title" ${
-    tooltipAttributes(
-      "Action-focused follow-ups selected from blocked/high-risk/high-impact active work.",
-    )
-  }>Risks and Follow-ups</h2>
-        <ul class="followup-list">${riskItems}</ul>
-      </section>
-
-      <section class="section-card">
-        <h2 class="section-title" ${
-    tooltipAttributes(
-      "Structured talking points for weekly updates with concise, vertical bullet detail.",
-    )
-  }>Weekly Activity Talking Points${
-    narrative.aiAssisted.weeklyTalkingPoints
-      ? ' <span class="badge">AI-assisted</span>'
-      : ""
-  }</h2>
-        <div class="talk-grid">${talkingItems}</div>
-      </section>
-
-      <section class="section-card">
-        <h2 class="section-title" ${
-    tooltipAttributes(
-      "Ranked issue appendix with deterministic attribution fields.",
-    )
-  }>Appendix</h2>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th ${
-    tooltipAttributes("Deterministic rank in final ordered list.")
-  }>Rank</th>
-                <th ${
-    tooltipAttributes("Provider issue key with optional link.")
-  }>Issue</th>
-                <th ${tooltipAttributes("Source provider.")}>Provider</th>
-                <th ${tooltipAttributes("Raw provider state.")}>State</th>
-                <th ${
-    tooltipAttributes("Normalized activity bucket.")
-  }>Bucket</th>
-                <th ${
-    tooltipAttributes("Deterministic impact score.")
-  }>Impact</th>
-                <th ${
-    tooltipAttributes("Most recent provider update time (UTC).")
-  }>Updated</th>
-                <th ${
-    tooltipAttributes("Was issue authored by configured user?")
-  }>Authored</th>
-                <th ${
-    tooltipAttributes("Was issue assigned to configured user?")
-  }>Assigned</th>
-                <th ${
-    tooltipAttributes("Did configured user comment on the issue?")
-  }>Commented</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${appendixRows}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
-  </body>
-</html>`;
 };
 
 const SHADCN_RENDERER_DIR = "reporting/shadcn-renderer";
@@ -2637,7 +1563,27 @@ export const buildRunReport = async (
     html,
     reportFormat: context.reportFormat,
     narrative,
+    context: { startDate: context.startDate, endDate: context.endDate },
   };
+};
+
+const formatFilenameDate = (isoDate: string): string => {
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return "unknown";
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+};
+
+const buildOutputFileBase = (report: RunReport): string => {
+  const start = formatFilenameDate(report.context.startDate);
+  const end = formatFilenameDate(report.context.endDate);
+
+  const providers = report.providerDistribution
+    .filter((p) => p.count > 0)
+    .map((p) => p.provider)
+    .sort()
+    .join("-");
+
+  return `${start}_to_${end}_${providers || "none"}`;
 };
 
 export const writeRunReport = async (
@@ -2647,23 +1593,33 @@ export const writeRunReport = async (
 > => {
   const outputDir = "output";
   await Deno.mkdir(outputDir, { recursive: true });
-  const timestamp = new Date().toISOString().replace(/[:]/g, "-");
-  const normalizedPath = `${outputDir}/${timestamp}-normalized.json`;
-  const htmlPath = `${outputDir}/${timestamp}-summary.html`;
 
+  const fileBase = buildOutputFileBase(report);
+  const keepFiles = new Set<string>();
+
+  const normalizedPath = `${outputDir}/${fileBase}-normalized.json`;
   const normalizedIssuesForJson = report.normalizedIssues.map(
     ({ descriptionSnippet: _descriptionSnippet, ...issue }) => issue,
   );
-
   await Deno.writeTextFile(
     normalizedPath,
     JSON.stringify(normalizedIssuesForJson, null, 2),
   );
-  await Deno.writeTextFile(htmlPath, report.html);
-  const keepFiles = new Set([
-    normalizedPath.slice(outputDir.length + 1),
-    htmlPath.slice(outputDir.length + 1),
-  ]);
+  keepFiles.add(normalizedPath.slice(outputDir.length + 1));
+
+  let markdownPath: string | undefined;
+  if (report.reportFormat === "markdown" || report.reportFormat === "both") {
+    markdownPath = `${outputDir}/${fileBase}-summary.md`;
+    await Deno.writeTextFile(markdownPath, report.markdown);
+    keepFiles.add(markdownPath.slice(outputDir.length + 1));
+  }
+
+  let htmlPath: string | undefined;
+  if (report.reportFormat === "html" || report.reportFormat === "both") {
+    htmlPath = `${outputDir}/${fileBase}-summary.html`;
+    await Deno.writeTextFile(htmlPath, report.html);
+    keepFiles.add(htmlPath.slice(outputDir.length + 1));
+  }
 
   for await (const entry of Deno.readDir(outputDir)) {
     if (!entry.isFile) {
@@ -2674,9 +1630,5 @@ export const writeRunReport = async (
     await Deno.remove(`${outputDir}/${entry.name}`);
   }
 
-  return {
-    markdownPath: undefined,
-    htmlPath,
-    normalizedPath,
-  };
+  return { markdownPath, htmlPath, normalizedPath };
 };

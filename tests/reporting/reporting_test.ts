@@ -197,22 +197,21 @@ Deno.test("buildRunReport applies deterministic impact scoring, ordering, and se
   assertEquals(report.markdown.includes("## Comparison"), false);
 
   assertStringIncludes(report.html, "Activity Report");
-  assertStringIncludes(report.html, "Top Highlights");
-  assertStringIncludes(report.html, "Collaboration");
+  assertStringIncludes(report.html, "Top Activity Highlights");
+  assertStringIncludes(report.html, "Collaboration Highlights");
   assertStringIncludes(report.html, "Risks and Follow-ups");
   assertStringIncludes(report.html, "Talking Points");
   assertStringIncludes(report.html, "Appendix");
-  assertStringIncludes(report.html, "Export CSV");
+  assertStringIncludes(report.html, "Impact Legend");
+  assertStringIncludes(report.html, "GH-99");
   assertEquals(report.html.includes("Week-over-week"), false);
   assertEquals(report.html.includes("vs previous"), false);
-  assertStringIncludes(report.html, "DOMContentLoaded");
-  assertEquals(report.html.includes("data-sidepanel"), false);
-  assertStringIncludes(report.html, "data-search");
-  assertStringIncludes(report.html, "data-filter-provider");
-  assertStringIncludes(report.html, "data-visible-count");
-  assertStringIncludes(report.html, "data-row");
   assertEquals(report.coverage.sourceMode, "report");
   assertEquals(report.coverage.totalProviderCount, 3);
+
+  // context carried through for file naming
+  assertEquals(report.context.startDate, "2026-02-01T00:00:00Z");
+  assertEquals(report.context.endDate, "2026-02-16T23:59:59Z");
 });
 
 Deno.test("buildRunReport is current-window only and ignores previous-window options", async () => {
