@@ -1,11 +1,6 @@
 import { ProviderName } from "../providers/types.ts";
 import { ProviderRunResult } from "../core/run_status.ts";
-import {
-  AiNarrativeMode,
-  ReportFormat,
-  ReportProfile,
-} from "../shared/types.ts";
-import { AiNarrativeResult, applyAiNarrativeRewrite } from "./ai_narrative.ts";
+import { rewriteHeadline } from "./ai_narrative.ts";
 
 export type ActivityBucket = "completed" | "active" | "blocked" | "other";
 
@@ -64,31 +59,8 @@ export interface ReportSummary {
   byProvider: Record<ProviderName, number>;
   byState: Record<string, number>;
   byBucket: Record<ActivityBucket, number>;
-  topLabels: Array<{ label: string; count: number }>;
   highPriorityLabelIssues: number;
   contribution: ContributionSummary;
-  topActivityHighlights: ReportIssueView[];
-  collaborationHighlights: ReportIssueView[];
-  risksAndFollowUps: ReportIssueView[];
-  latestUpdated: ReportIssueView[];
-}
-
-export interface WeeklyTalkingPoint {
-  lead: string;
-  bullets: string[];
-}
-
-export interface NarrativeSections {
-  executiveHeadline: string;
-  topHighlightWording: string[];
-  collaborationHighlights: string[];
-  risksAndFollowUps: string[];
-  weeklyTalkingPoints: WeeklyTalkingPoint[];
-  aiAssisted: {
-    executiveHeadline: boolean;
-    topHighlights: boolean;
-    weeklyTalkingPoints: boolean;
-  };
 }
 
 export interface RunReport {
@@ -96,20 +68,15 @@ export interface RunReport {
   summary: ReportSummary;
   coverage: ReportCoverageSummary;
   providerDistribution: Array<{ provider: ProviderName; count: number }>;
-  markdown: string;
   html: string;
-  reportFormat: ReportFormat;
-  narrative: NarrativeSections;
+  headline: string;
+  aiAssisted: boolean;
   context: { startDate: string; endDate: string };
 }
 
 export interface ReportContext {
   startDate: string;
   endDate: string;
-  fetchMode: string;
-  reportProfile: ReportProfile;
-  reportFormat: ReportFormat;
-  aiNarrative: AiNarrativeMode;
   aiModel: string;
   generatedAt?: string;
   sourceMode?: "fetch" | "report";
@@ -134,39 +101,6 @@ export interface ReportBuildOptions {
     runResults?: ProviderRunResult[];
   };
 }
-
-const PROFILE_SETTINGS: Record<
-  ReportProfile,
-  {
-    topHighlights: number;
-    collaboration: number;
-    risks: number;
-    appendix: number;
-    talkingPoints: number;
-  }
-> = {
-  brief: {
-    topHighlights: 3,
-    collaboration: 2,
-    risks: 2,
-    appendix: 10,
-    talkingPoints: 3,
-  },
-  activity_retro: {
-    topHighlights: 5,
-    collaboration: 3,
-    risks: 3,
-    appendix: 20,
-    talkingPoints: 5,
-  },
-  showcase: {
-    topHighlights: 7,
-    collaboration: 4,
-    risks: 4,
-    appendix: 30,
-    talkingPoints: 6,
-  },
-};
 
 const HIGH_IMPACT_LABEL_HINTS = [
   "sev",
@@ -389,63 +323,6 @@ const toIssueView = (issue: NormalizedIssue): ReportIssueView => ({
   descriptionSnippet: issue.descriptionSnippet,
   url: issue.url,
 });
-
-const formatProvider = (provider: ProviderName): string => {
-  if (provider === "gitlab") return "GitLab";
-  if (provider === "jira") return "Jira";
-  return "GitHub";
-};
-
-const HUMAN_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
-const HUMAN_DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "UTC",
-  timeZoneName: "short",
-});
-
-const formatHumanDateTime = (value: string): string => {
-  const parsed = parseTimestamp(value);
-  if (parsed <= 0) {
-    return value;
-  }
-  return HUMAN_DATE_TIME_FORMAT.format(new Date(parsed));
-};
-
-const formatHumanDate = (value: string): string => {
-  const parsed = parseTimestamp(value);
-  if (parsed <= 0) {
-    return value;
-  }
-  return HUMAN_DATE_FORMAT.format(new Date(parsed));
-};
-
-const summarizeFollowUpAction = (issue: ReportIssueView): string => {
-  const snippet = issue.descriptionSnippet.replace(/\s+/g, " ").trim();
-  if (snippet.length > 0) {
-    const firstSentence = snippet.split(/[.!?]/)[0]?.trim();
-    if (firstSentence) {
-      return firstSentence.endsWith(".") ? firstSentence : `${firstSentence}.`;
-    }
-  }
-
-  if (issue.bucket === "blocked") {
-    return "Remove blocker, confirm owner, and set a next checkpoint date.";
-  }
-  if (issue.bucket === "active") {
-    return "Confirm the next deliverable and lock a completion date.";
-  }
-  return "Confirm owner and next action in the next status checkpoint.";
-};
 
 const normalizeGitLabIssue = (
   raw: Record<string, unknown>,
@@ -703,60 +580,9 @@ export const normalizeProviderIssues = (
   );
 };
 
-const selectReportViews = (
-  sortedIssues: NormalizedIssue[],
-  profile: ReportProfile,
-): {
-  topActivityHighlights: ReportIssueView[];
-  collaborationHighlights: ReportIssueView[];
-  risksAndFollowUps: ReportIssueView[];
-  appendix: ReportIssueView[];
-} => {
-  const settings = PROFILE_SETTINGS[profile];
-
-  const topActivityHighlights = sortedIssues
-    .slice(0, settings.topHighlights)
-    .map(toIssueView);
-
-  const collaborationHighlights = sortedIssues
-    .filter((issue) => issue.contributedByUser)
-    .sort((a, b) => {
-      if (a.userCommentCount !== b.userCommentCount) {
-        return b.userCommentCount - a.userCommentCount;
-      }
-      return compareIssues(a, b);
-    })
-    .slice(0, settings.collaboration)
-    .map(toIssueView);
-
-  const risksAndFollowUps = sortedIssues
-    .filter((issue) => {
-      if (issue.bucket === "blocked") return true;
-      if (hasHighImpactLabels(issue.labels) && issue.bucket !== "completed") {
-        return true;
-      }
-      return issue.bucket === "active" && issue.impactScore >= 35;
-    })
-    .slice(0, settings.risks)
-    .map(toIssueView);
-
-  const appendix = sortedIssues
-    .slice(0, settings.appendix)
-    .map(toIssueView);
-
-  return {
-    topActivityHighlights,
-    collaborationHighlights,
-    risksAndFollowUps,
-    appendix,
-  };
-};
-
 export const buildReportSummary = (
   normalizedIssues: NormalizedIssue[],
-  profile: ReportProfile = "activity_retro",
 ): ReportSummary => {
-  const sortedIssues = [...normalizedIssues].sort(compareIssues);
   const byProvider: Record<ProviderName, number> = {
     gitlab: 0,
     jira: 0,
@@ -771,16 +597,14 @@ export const buildReportSummary = (
     other: 0,
   };
 
-  const labelCounts = new Map<string, number>();
   let highPriorityLabelIssues = 0;
-
   let contributedIssues = 0;
   let authoredIssues = 0;
   let assignedIssues = 0;
   let commentedIssues = 0;
   let totalUserComments = 0;
 
-  for (const issue of sortedIssues) {
+  for (const issue of normalizedIssues) {
     byProvider[issue.provider] += 1;
     byState[issue.state] = (byState[issue.state] ?? 0) + 1;
     byBucket[issue.bucket] += 1;
@@ -794,39 +618,13 @@ export const buildReportSummary = (
     if (hasHighImpactLabels(issue.labels)) {
       highPriorityLabelIssues += 1;
     }
-
-    for (const label of issue.labels) {
-      labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
-    }
   }
 
-  const topLabels = [...labelCounts.entries()]
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => {
-      if (a.count !== b.count) {
-        return b.count - a.count;
-      }
-      return a.label.localeCompare(b.label);
-    })
-    .slice(0, 10);
-
-  const latestUpdated = [...sortedIssues]
-    .sort((a, b) => {
-      const updatedDiff = compareUpdatedAtDesc(a.updatedAt, b.updatedAt);
-      if (updatedDiff !== 0) return updatedDiff;
-      return a.key.localeCompare(b.key);
-    })
-    .slice(0, 5)
-    .map(toIssueView);
-
-  const views = selectReportViews(sortedIssues, profile);
-
   return {
-    totalIssues: sortedIssues.length,
+    totalIssues: normalizedIssues.length,
     byProvider,
     byState,
     byBucket,
-    topLabels,
     highPriorityLabelIssues,
     contribution: {
       contributedIssues,
@@ -835,49 +633,11 @@ export const buildReportSummary = (
       commentedIssues,
       totalUserComments,
     },
-    topActivityHighlights: views.topActivityHighlights,
-    collaborationHighlights: views.collaborationHighlights,
-    risksAndFollowUps: views.risksAndFollowUps,
-    latestUpdated,
   };
-};
-
-const firstSentenceFromSnippet = (value: string): string => {
-  const snippet = value.replace(/\s+/g, " ").trim();
-  if (!snippet) return "";
-  const first = snippet.split(/[.!?]/)[0]?.trim() ?? "";
-  return first;
-};
-
-const highlightNarrativeFallback = (issue: ReportIssueView): string => {
-  const snippet = firstSentenceFromSnippet(issue.descriptionSnippet);
-
-  if (issue.bucket === "completed") {
-    return snippet
-      ? `Closed ${issue.key}: ${snippet}.`
-      : `${issue.key} (${issue.title}) completed, moved to ${issue.state}.`;
-  }
-
-  if (issue.bucket === "blocked") {
-    return snippet
-      ? `${issue.key} is blocked: ${snippet}. Needs follow-up.`
-      : `${issue.key} (${issue.title}) is blocked in ${issue.state} and requires follow-up.`;
-  }
-
-  if (issue.bucket === "active") {
-    return snippet
-      ? `${issue.key} in progress: ${snippet}.`
-      : `${issue.key} (${issue.title}) is actively being worked in ${issue.state}.`;
-  }
-
-  return snippet
-    ? `${issue.key}: ${snippet}.`
-    : `${issue.key} (${issue.title}) is in ${issue.state}.`;
 };
 
 const buildHeadlineLead = (
   summary: ReportSummary,
-  _context: ReportContext,
 ): string => {
   if (summary.totalIssues === 0) {
     return "No ticket activity was captured in the selected reporting window.";
@@ -886,13 +646,8 @@ const buildHeadlineLead = (
   const parts: string[] = [];
 
   if (summary.byBucket.completed > 0) {
-    const topCompleted = summary.topActivityHighlights.find((issue) =>
-      issue.bucket === "completed"
-    );
     parts.push(
-      summary.byBucket.completed === 1 && topCompleted
-        ? `Completed ${topCompleted.key}`
-        : `Completed ${summary.byBucket.completed} item${summary.byBucket.completed > 1 ? "s" : ""}`,
+      `Completed ${summary.byBucket.completed} item${summary.byBucket.completed > 1 ? "s" : ""}`,
     );
   }
 
@@ -911,341 +666,9 @@ const buildHeadlineLead = (
   return parts.join(", ") + ".";
 };
 
-const buildDeterministicNarrative = (
-  summary: ReportSummary,
-  context: ReportContext,
-  coverage?: ReportCoverageSummary,
-): {
-  headlineLead: string;
-  headlineFacts: string;
-  topHighlightWording: string[];
-  collaborationHighlights: string[];
-  risksAndFollowUps: string[];
-  weeklyPointLeads: string[];
-  weeklyPointBullets: string[][];
-} => {
-  const providerCount = coverage ? coverage.connectedProviderCount : [
-    summary.byProvider.gitlab,
-    summary.byProvider.jira,
-    summary.byProvider.github,
-  ].filter((count) => count > 0).length;
-
-  const headlineLead = buildHeadlineLead(summary, context);
-
-  const headlineFacts = summary.totalIssues === 0
-    ? `No issues found across ${providerCount} connected provider${
-      providerCount === 1 ? "" : "s"
-    }; ${summary.byBucket.completed} completed, ${summary.byBucket.active} active, ${summary.byBucket.blocked} blocked.`
-    : `${summary.totalIssues} issues across ${providerCount} provider${
-      providerCount === 1 ? "" : "s"
-    }; ${summary.byBucket.completed} completed, ${summary.byBucket.active} active, ${summary.byBucket.blocked} blocked.`;
-
-  const topHighlightWording = summary.topActivityHighlights.map((issue) =>
-    highlightNarrativeFallback(issue)
-  );
-
-  const collaborationHighlights = summary.collaborationHighlights.map(
-    (issue) => {
-      const actions: string[] = [];
-      if (issue.isAuthoredByUser) actions.push("authored");
-      if (issue.isAssignedToUser) actions.push("assigned");
-      if (issue.isCommentedByUser) {
-        actions.push(
-          `${issue.userCommentCount} comment${issue.userCommentCount > 1 ? "s" : ""}`,
-        );
-      }
-
-      return `${issue.key}: ${actions.join(", ") || "contributed"} (${formatProvider(issue.provider)}, ${issue.bucket}).`;
-    },
-  );
-
-  const risksAndFollowUps = summary.risksAndFollowUps.map((issue) => {
-    return `[${formatProvider(issue.provider)} ${issue.key}] ${
-      summarizeFollowUpAction(issue)
-    }`;
-  });
-
-  const topLabel = summary.topLabels[0]?.label;
-  const strongest = summary.topActivityHighlights[0];
-
-  const activeProviders = (["gitlab", "jira", "github"] as const)
-    .filter((p) => summary.byProvider[p] > 0)
-    .map(formatProvider);
-
-  const recentWindowCutoff = parseTimestamp(context.endDate) -
-    (48 * 60 * 60 * 1000);
-  const recentCount = summary.latestUpdated.filter((issue) => {
-    const updatedAtMs = parseTimestamp(issue.updatedAt);
-    return updatedAtMs > 0 && updatedAtMs >= recentWindowCutoff;
-  }).length;
-
-  const weeklyPointLeads = [
-    `${summary.byBucket.completed} completed, ${summary.byBucket.active} active, ${summary.byBucket.blocked} blocked this window.`,
-    providerCount > 1
-      ? `Activity spans ${providerCount} providers: ${activeProviders.join(", ")}.`
-      : `All activity from ${activeProviders[0] ?? "1 provider"}.`,
-    summary.contribution.contributedIssues > 0
-      ? `User contributed to ${summary.contribution.contributedIssues} issue${summary.contribution.contributedIssues > 1 ? "s" : ""} with ${summary.contribution.totalUserComments} comment${summary.contribution.totalUserComments !== 1 ? "s" : ""}.`
-      : "No direct user contribution detected this window.",
-    summary.highPriorityLabelIssues > 0
-      ? `${summary.highPriorityLabelIssues} high-priority label issue${summary.highPriorityLabelIssues > 1 ? "s" : ""} in scope.`
-      : "No high-priority labels flagged this window.",
-    strongest
-      ? `Top-ranked: ${strongest.key} with impact score ${strongest.impactScore}.`
-      : "No ranked highlights available.",
-    `${recentCount} issue${recentCount !== 1 ? "s" : ""} updated in the last 48 hours.`,
-  ];
-
-  const weeklyPointBullets = [
-    [
-      `Completed: ${summary.byBucket.completed}`,
-      `Active: ${summary.byBucket.active}`,
-      `Blocked: ${summary.byBucket.blocked}`,
-    ],
-    [
-      `GitLab issues: ${summary.byProvider.gitlab}`,
-      `Jira issues: ${summary.byProvider.jira}`,
-      `GitHub issues: ${summary.byProvider.github}`,
-    ],
-    [
-      `Contributed issues: ${summary.contribution.contributedIssues}`,
-      `Authored by user: ${summary.contribution.authoredIssues}`,
-      `Assigned to user: ${summary.contribution.assignedIssues}`,
-      `Commented by user: ${summary.contribution.commentedIssues}`,
-      `User comment count: ${summary.contribution.totalUserComments}`,
-    ],
-    [
-      `High-priority label issues: ${summary.highPriorityLabelIssues}`,
-      topLabel
-        ? `Top recurring label: ${topLabel}`
-        : "No recurring label trend this window.",
-    ],
-    strongest
-      ? [
-        `Top ranked issue: ${strongest.key}`,
-        `Impact score: ${strongest.impactScore}`,
-        `Bucket: ${strongest.bucket}`,
-      ]
-      : ["No ranked highlights were available."],
-    [`Updates in last 48h scoring window: ${recentCount}`],
-  ];
-
-  const settings = PROFILE_SETTINGS[context.reportProfile];
-
-  return {
-    headlineLead,
-    headlineFacts,
-    topHighlightWording,
-    collaborationHighlights,
-    risksAndFollowUps,
-    weeklyPointLeads: weeklyPointLeads.slice(0, settings.talkingPoints),
-    weeklyPointBullets: weeklyPointBullets.slice(0, settings.talkingPoints),
-  };
-};
-
-const buildNarrativeWithAi = async (
-  summary: ReportSummary,
-  context: ReportContext,
-  coverage?: ReportCoverageSummary,
-): Promise<NarrativeSections> => {
-  const deterministic = buildDeterministicNarrative(summary, context, coverage);
-
-  const aiRewrite = await applyAiNarrativeRewrite(
-    {
-      mode: context.aiNarrative,
-      model: context.aiModel,
-      apiKey: context.openaiApiKey,
-      headlineLead: deterministic.headlineLead,
-      topHighlightWording: deterministic.topHighlightWording,
-      weeklyPointLeads: deterministic.weeklyPointLeads,
-      context: {
-        startDate: context.startDate,
-        endDate: context.endDate,
-        fetchMode: context.fetchMode,
-        reportProfile: context.reportProfile,
-      },
-      payload: {
-        highlights: summary.topActivityHighlights,
-        collaboration: summary.collaborationHighlights,
-        risks: summary.risksAndFollowUps,
-      },
-    },
-  );
-
-  const composeHeadline = (rewrite: AiNarrativeResult): string => {
-    return `${rewrite.headlineLead} ${deterministic.headlineFacts}`.trim();
-  };
-
-  return {
-    executiveHeadline: composeHeadline(aiRewrite),
-    topHighlightWording: aiRewrite.topHighlightWording,
-    collaborationHighlights: deterministic.collaborationHighlights,
-    risksAndFollowUps: deterministic.risksAndFollowUps,
-    weeklyTalkingPoints: aiRewrite.weeklyPointLeads.map((lead, index) => ({
-      lead,
-      bullets: deterministic.weeklyPointBullets[index] ?? [],
-    })),
-    aiAssisted: {
-      executiveHeadline: aiRewrite.assisted.headline,
-      topHighlights: aiRewrite.assisted.highlights,
-      weeklyTalkingPoints: aiRewrite.assisted.weeklyTalkingPoints,
-    },
-  };
-};
-
-const renderTopHighlightLine = (
-  issue: ReportIssueView,
-  wording: string,
-): string => {
-  const labels = issue.labels.length
-    ? ` | labels: ${issue.labels.join(", ")}`
-    : "";
-  const details = `[${
-    formatProvider(issue.provider)
-  }] ${issue.key} | ${issue.bucket} | impact ${issue.impactScore} | updated ${
-    formatHumanDateTime(issue.updatedAt)
-  }${labels}`;
-  return `- ${details} :: ${wording}`;
-};
-
-const renderIssueLink = (issue: ReportIssueView): string => {
-  return issue.url ? `[${issue.key}](${issue.url})` : issue.key;
-};
-
-const IMPACT_LEGEND_ITEMS = [
-  "`80+`: high-impact activity with strong execution and ownership signals.",
-  "`50-79`: meaningful progress with clear contribution momentum.",
-  "`0-49`: lower impact or early-stage activity that still needs follow-through.",
-  "Score inputs: completed +40, active +20, blocked +10, authored +15, assigned +10, user comments +2 each (max +10), high-impact labels +12, updated in final 48h +8.",
-];
-
-
-export const buildReportMarkdown = (
-  summary: ReportSummary,
-  narrative: NarrativeSections,
-  context: ReportContext,
-  normalizedIssues: NormalizedIssue[],
-  coverage?: ReportCoverageSummary,
-): string => {
-  const lines: string[] = [
-    "# Activity Report 2.0",
-    "",
-    "## Header / Context",
-    `- Window: ${formatHumanDate(context.startDate)} -> ${
-      formatHumanDate(context.endDate)
-    }`,
-    `- Fetch Mode: ${context.fetchMode}`,
-    `- Report Profile: ${context.reportProfile}`,
-    `- Report Format: ${context.reportFormat}`,
-    `- Source Mode: ${context.sourceMode ?? "report"}`,
-    "",
-    `### Executive Headline${
-      narrative.aiAssisted.executiveHeadline ? " (AI-assisted)" : ""
-    }`,
-    narrative.executiveHeadline,
-    "",
-    "## KPI Row",
-    `- Total Issues: ${summary.totalIssues}`,
-    `- Completed: ${summary.byBucket.completed}`,
-    `- Active: ${summary.byBucket.active}`,
-    `- Blocked: ${summary.byBucket.blocked}`,
-    `- User Contributed Issues: ${summary.contribution.contributedIssues}`,
-    `- User Comment Count: ${summary.contribution.totalUserComments}`,
-    `- High-Priority Label Issues: ${summary.highPriorityLabelIssues}`,
-    `- GitLab Issues: ${summary.byProvider.gitlab}`,
-    `- Jira Issues: ${summary.byProvider.jira}`,
-    `- GitHub Issues: ${summary.byProvider.github}`,
-    "",
-    "## Impact Legend",
-    ...IMPACT_LEGEND_ITEMS.map((line) => `- ${line}`),
-    "",
-    `## Top Activity Highlights${
-      narrative.aiAssisted.topHighlights ? " (AI-assisted)" : ""
-    }`,
-  ];
-
-  if (!summary.topActivityHighlights.length) {
-    lines.push("- (none)");
-  } else {
-    for (const [index, issue] of summary.topActivityHighlights.entries()) {
-      lines.push(
-        renderTopHighlightLine(
-          issue,
-          narrative.topHighlightWording[index] ?? "",
-        ),
-      );
-    }
-  }
-
-  lines.push("", "## Collaboration Highlights");
-  lines.push(
-    `- Total collaborative issues: ${summary.contribution.contributedIssues}`,
-  );
-
-  lines.push("", "## Risks and Follow-ups");
-  if (!narrative.risksAndFollowUps.length) {
-    lines.push("- No immediate follow-up actions required.");
-  } else {
-    for (const [index, line] of narrative.risksAndFollowUps.entries()) {
-      lines.push(`${index + 1}. ${line}`);
-    }
-  }
-
-  lines.push(
-    "",
-    `## Weekly Activity Talking Points${
-      narrative.aiAssisted.weeklyTalkingPoints ? " (AI-assisted)" : ""
-    }`,
-  );
-  if (!narrative.weeklyTalkingPoints.length) {
-    lines.push("- (none)");
-  } else {
-    for (const point of narrative.weeklyTalkingPoints) {
-      lines.push(`- **${point.lead}**`);
-      for (const bullet of point.bullets) {
-        lines.push(`  - ${bullet}`);
-      }
-    }
-  }
-
-  lines.push(
-    "",
-    "## Appendix",
-    "| Rank | Issue | Provider | State | Bucket | Impact | Updated | Authored | Assigned | Commented |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
-  );
-
-  if (!normalizedIssues.length) {
-    lines.push("| - | - | - | - | - | - | - | - | - | - |");
-  } else {
-    for (const [index, issue] of normalizedIssues.entries()) {
-      lines.push(
-        `| ${index + 1} | ${renderIssueLink(issue)} | ${
-          formatProvider(issue.provider)
-        } | ${issue.state} | ${issue.bucket} | ${issue.impactScore} | ${
-          formatHumanDateTime(issue.updatedAt)
-        } | ${issue.isAuthoredByUser ? "yes" : "no"} | ${
-          issue.isAssignedToUser ? "yes" : "no"
-        } | ${issue.isCommentedByUser ? "yes" : "no"} |`,
-      );
-    }
-  }
-
-  if (coverage) {
-    lines.push("", "## Coverage");
-    lines.push(
-      `- Providers connected: ${coverage.connectedProviderCount}/${coverage.totalProviderCount}`,
-    );
-    if (coverage.failedProviders.length) {
-      lines.push(`- Provider failures: ${coverage.failedProviders.join(", ")}`);
-    } else {
-      lines.push("- Provider failures: none");
-    }
-  }
-
-  lines.push("");
-  return lines.join("\n");
-};
+/* ------------------------------------------------------------------ */
+/*  Shadcn renderer integration                                        */
+/* ------------------------------------------------------------------ */
 
 const SHADCN_RENDERER_DIR = "reporting/shadcn-renderer";
 const SHADCN_RENDERER_SOURCE = `${SHADCN_RENDERER_DIR}/src/entry-server.tsx`;
@@ -1383,7 +806,8 @@ const ensureShadcnPackageRendererReady = async (): Promise<void> => {
 
 const buildShadcnPackageHtml = async (
   summary: ReportSummary,
-  narrative: NarrativeSections,
+  headline: string,
+  aiAssisted: boolean,
   context: ReportContext,
   normalizedIssues: NormalizedIssue[],
   coverage: ReportCoverageSummary,
@@ -1392,7 +816,8 @@ const buildShadcnPackageHtml = async (
   await ensureShadcnPackageRendererReady();
   const payload = {
     summary,
-    narrative,
+    headline,
+    aiAssisted,
     context,
     normalizedIssues,
     coverage,
@@ -1431,6 +856,10 @@ const buildShadcnPackageHtml = async (
 
   return html;
 };
+
+/* ------------------------------------------------------------------ */
+/*  Scoring & coverage helpers                                         */
+/* ------------------------------------------------------------------ */
 
 const resolveWindowEndMs = (
   normalizedIssues: NormalizedIssue[],
@@ -1506,6 +935,10 @@ const buildProviderDistribution = (
   }));
 };
 
+/* ------------------------------------------------------------------ */
+/*  Public API                                                         */
+/* ------------------------------------------------------------------ */
+
 export const buildRunReport = async (
   providerIssues: Partial<Record<ProviderName, unknown[]>>,
   context: ReportContext,
@@ -1531,25 +964,26 @@ export const buildRunReport = async (
   )
     .sort(compareIssues);
 
-  const summary = buildReportSummary(normalizedIssues, context.reportProfile);
+  const summary = buildReportSummary(normalizedIssues);
   const coverage = buildCoverageSummary(summary, options.diagnostics);
   const providerDistribution = buildProviderDistribution(summary.byProvider);
-  const narrative = await buildNarrativeWithAi(summary, context, coverage);
-  const settings = PROFILE_SETTINGS[context.reportProfile];
-  const appendixIssues = normalizedIssues.slice(0, settings.appendix);
 
-  const markdown = buildReportMarkdown(
-    summary,
-    narrative,
-    { ...context, generatedAt },
-    appendixIssues,
-    coverage,
-  );
+  const headlineLead = buildHeadlineLead(summary);
+  const topIssues = normalizedIssues.slice(0, 6).map(toIssueView);
+  const aiResult = await rewriteHeadline(headlineLead, {
+    model: context.aiModel,
+    apiKey: context.openaiApiKey,
+    startDate: context.startDate,
+    endDate: context.endDate,
+    topIssues,
+  });
+
   const html = await buildShadcnPackageHtml(
     summary,
-    narrative,
+    aiResult.headlineLead,
+    aiResult.assisted,
     { ...context, generatedAt },
-    appendixIssues,
+    normalizedIssues,
     coverage,
     providerDistribution,
   );
@@ -1559,10 +993,9 @@ export const buildRunReport = async (
     summary,
     coverage,
     providerDistribution,
-    markdown,
     html,
-    reportFormat: context.reportFormat,
-    narrative,
+    headline: aiResult.headlineLead,
+    aiAssisted: aiResult.assisted,
     context: { startDate: context.startDate, endDate: context.endDate },
   };
 };
@@ -1589,7 +1022,7 @@ const buildOutputFileBase = (report: RunReport): string => {
 export const writeRunReport = async (
   report: RunReport,
 ): Promise<
-  { markdownPath?: string; htmlPath?: string; normalizedPath: string }
+  { htmlPath: string; normalizedPath: string }
 > => {
   const outputDir = "output";
   await Deno.mkdir(outputDir, { recursive: true });
@@ -1607,19 +1040,9 @@ export const writeRunReport = async (
   );
   keepFiles.add(normalizedPath.slice(outputDir.length + 1));
 
-  let markdownPath: string | undefined;
-  if (report.reportFormat === "markdown" || report.reportFormat === "both") {
-    markdownPath = `${outputDir}/${fileBase}-summary.md`;
-    await Deno.writeTextFile(markdownPath, report.markdown);
-    keepFiles.add(markdownPath.slice(outputDir.length + 1));
-  }
-
-  let htmlPath: string | undefined;
-  if (report.reportFormat === "html" || report.reportFormat === "both") {
-    htmlPath = `${outputDir}/${fileBase}-summary.html`;
-    await Deno.writeTextFile(htmlPath, report.html);
-    keepFiles.add(htmlPath.slice(outputDir.length + 1));
-  }
+  const htmlPath = `${outputDir}/${fileBase}-summary.html`;
+  await Deno.writeTextFile(htmlPath, report.html);
+  keepFiles.add(htmlPath.slice(outputDir.length + 1));
 
   for await (const entry of Deno.readDir(outputDir)) {
     if (!entry.isFile) {
@@ -1630,5 +1053,5 @@ export const writeRunReport = async (
     await Deno.remove(`${outputDir}/${entry.name}`);
   }
 
-  return { markdownPath, htmlPath, normalizedPath };
+  return { htmlPath, normalizedPath };
 };

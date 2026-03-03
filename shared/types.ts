@@ -1,6 +1,3 @@
-export type ReportProfile = "brief" | "activity_retro" | "showcase";
-export type ReportFormat = "markdown" | "html" | "both";
-export type AiNarrativeMode = "auto" | "on" | "off";
 export type UnknownRecord = Record<string, unknown>;
 
 export interface Config {
@@ -13,18 +10,13 @@ export interface Config {
   githubPAT?: string;
   githubURL?: string;
   githubUsername?: string;
-  reportProfile?: ReportProfile;
-  reportFormat?: ReportFormat;
-  aiNarrative?: AiNarrativeMode;
   aiModel?: string;
   openaiApiKey?: string;
   outFile: string;
   timeRange: string;
-  fetchMode: string;
   provider: "gitlab" | "jira" | "github" | "all";
   startDate?: string;
   endDate?: string;
-  //   projectIDs: string[];
 }
 
 interface GitlabUser {

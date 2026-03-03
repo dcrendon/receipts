@@ -1,11 +1,6 @@
 import { load } from "@std/dotenv";
 import { Config } from "../shared/types.ts";
-import {
-  parseAiNarrativeMode,
-  parseAttributionUsername,
-  parseReportFormat,
-  parseReportProfile,
-} from "./report_options.ts";
+import { parseAttributionUsername } from "./report_options.ts";
 
 export const promptExit = (message: string | null, exitCode: number): never => {
   if (message) {
@@ -20,13 +15,6 @@ export const promptExit = (message: string | null, exitCode: number): never => {
 export const loadEnvConfig = async (): Promise<Partial<Config>> => {
   await load({ export: true });
 
-  const reportProfile = parseReportProfile(Deno.env.get("REPORT_PROFILE")) ??
-    "activity_retro";
-  const reportFormat = parseReportFormat(Deno.env.get("REPORT_FORMAT")) ??
-    "html";
-  const aiNarrative = parseAiNarrativeMode(Deno.env.get("AI_NARRATIVE")) ??
-    "auto";
-
   return {
     provider: Deno.env.get("PROVIDER") as Config["provider"] | undefined,
     gitlabPAT: Deno.env.get("GITLAB_PAT")?.trim() || undefined,
@@ -38,23 +26,14 @@ export const loadEnvConfig = async (): Promise<Partial<Config>> => {
     githubPAT: Deno.env.get("GITHUB_PAT")?.trim() || undefined,
     githubURL: Deno.env.get("GITHUB_URL")?.trim() || undefined,
     githubUsername: parseAttributionUsername(Deno.env.get("GITHUB_USERNAME")),
-    reportProfile,
-    reportFormat,
-    aiNarrative,
     aiModel: Deno.env.get("AI_MODEL")?.trim() || "gpt-4o-mini",
     openaiApiKey: Deno.env.get("OPENAI_API_KEY")?.trim() || undefined,
     outFile: Deno.env.get("OUT_FILE")?.trim() || "output/issues.json",
     timeRange: Deno.env.get("TIME_RANGE")?.trim() || "week",
-    fetchMode: Deno.env.get("FETCH_MODE")?.trim() || "all_contributions",
     startDate: Deno.env.get("START_DATE")?.trim() || undefined,
     endDate: Deno.env.get("END_DATE")?.trim() || undefined,
   };
 };
-
-interface BuildRuntimeConfigInput {
-  envConfig: Partial<Config>;
-  interactive: boolean;
-}
 
 const normalizeProvider = (value?: string): Config["provider"] => {
   const normalized = value?.trim().toLowerCase();
@@ -68,7 +47,7 @@ const normalizeProvider = (value?: string): Config["provider"] => {
 };
 
 export const buildRuntimeConfig = (
-  { envConfig }: BuildRuntimeConfigInput,
+  { envConfig }: { envConfig: Partial<Config> },
 ): Config => {
   return {
     provider: normalizeProvider(envConfig.provider),
@@ -81,14 +60,10 @@ export const buildRuntimeConfig = (
     githubPAT: envConfig.githubPAT,
     githubURL: envConfig.githubURL,
     githubUsername: parseAttributionUsername(envConfig.githubUsername),
-    reportProfile: envConfig.reportProfile ?? "activity_retro",
-    reportFormat: envConfig.reportFormat ?? "html",
-    aiNarrative: envConfig.aiNarrative ?? "auto",
     aiModel: envConfig.aiModel?.trim() || "gpt-4o-mini",
     openaiApiKey: envConfig.openaiApiKey,
     outFile: envConfig.outFile?.trim() || "output/issues.json",
     timeRange: envConfig.timeRange?.trim() || "week",
-    fetchMode: envConfig.fetchMode?.trim() || "all_contributions",
     startDate: envConfig.startDate,
     endDate: envConfig.endDate,
   };

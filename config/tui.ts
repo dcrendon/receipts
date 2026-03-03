@@ -1,12 +1,6 @@
 import { promptSecret } from "@std/cli";
 import { Config } from "../shared/types.ts";
 import {
-  parseAiNarrativeMode,
-  parseReportFormat,
-  parseReportProfile,
-  REPORT_PROFILES,
-} from "./report_options.ts";
-import {
   describeProviderField,
   getMissingFieldsForProvider,
   getProviderReadiness,
@@ -15,44 +9,11 @@ import {
 import { ProviderName } from "../providers/types.ts";
 
 const TIME_RANGES = ["week", "month", "year", "custom"] as const;
-const FETCH_MODES = ["my_issues", "all_contributions"] as const;
 const OUTPUT_DIR = "output";
-const FIXED_PROVIDER: Config["provider"] = "all";
-const FIXED_REPORT_FORMAT: Config["reportFormat"] = "html";
-const FIXED_AI_NARRATIVE: Config["aiNarrative"] = "auto";
 const DEFAULT_AI_MODEL = "gpt-4o-mini";
-const WIZARD_TOTAL_STEPS = 5;
 
 const isNonEmpty = (value: string | null): value is string =>
   Boolean(value && value.trim().length > 0);
-
-interface AiWizardConfigDecision {
-  aiNarrative: Config["aiNarrative"];
-  aiModel: string;
-  shouldPromptForModel: boolean;
-  disabledReason?: string;
-}
-
-export const resolveAiWizardConfig = (
-  seed: Config,
-): AiWizardConfigDecision => {
-  const defaultModel = seed.aiModel ?? DEFAULT_AI_MODEL;
-
-  if (!seed.openaiApiKey) {
-    return {
-      aiNarrative: "off",
-      aiModel: defaultModel,
-      shouldPromptForModel: false,
-      disabledReason: "OPENAI_API_KEY not set",
-    };
-  }
-
-  return {
-    aiNarrative: FIXED_AI_NARRATIVE,
-    aiModel: defaultModel,
-    shouldPromptForModel: true,
-  };
-};
 
 export const getDefaultOutFile = (provider: Config["provider"]): string => {
   if (provider === "gitlab") return `${OUTPUT_DIR}/gitlab_issues.json`;
@@ -126,8 +87,11 @@ const askRequiredSecret = (question: string, defaultValue?: string): string => {
   }
 };
 
-const formatWizardStep = (step: number, label: string): string =>
-  `Step ${step}/${WIZARD_TOTAL_STEPS} - ${label}`;
+const getWizardTotalSteps = (hasApiKey: boolean): number =>
+  hasApiKey ? 3 : 2;
+
+const formatWizardStep = (step: number, totalSteps: number, label: string): string =>
+  `Step ${step}/${totalSteps} - ${label}`;
 
 const formatMissingFields = (fields: (keyof Config)[]): string =>
   fields.map(describeProviderField).join(", ");
@@ -226,10 +190,12 @@ export const runConfigWizard = (
     "Configure this run. Missing provider credentials can be added now.",
   );
 
-  const provider = FIXED_PROVIDER;
+  const hasApiKey = Boolean(seed.openaiApiKey);
+  const totalSteps = getWizardTotalSteps(hasApiKey);
+  let step = 1;
 
   const timeRange = askChoice(
-    formatWizardStep(1, "Select time range"),
+    formatWizardStep(step++, totalSteps, "Select time range"),
     TIME_RANGES,
     normalizeChoice(seed.timeRange, TIME_RANGES) ?? "week",
   );
@@ -247,61 +213,27 @@ export const runConfigWizard = (
     );
   }
 
-  const fetchMode = askChoice(
-    formatWizardStep(2, "Select fetch mode"),
-    FETCH_MODES,
-    normalizeChoice(seed.fetchMode, FETCH_MODES) ?? "all_contributions",
-  );
-
-  const reportProfile = askChoice(
-    formatWizardStep(3, "Select report profile"),
-    REPORT_PROFILES,
-    seed.reportProfile ?? "activity_retro",
-  );
-  const reportFormat = FIXED_REPORT_FORMAT;
-  const aiConfig = resolveAiWizardConfig(seed);
-  const aiNarrative = aiConfig.aiNarrative;
-  let aiModel = aiConfig.aiModel;
-  if (aiConfig.shouldPromptForModel) {
+  let aiModel = seed.aiModel ?? DEFAULT_AI_MODEL;
+  if (hasApiKey) {
     aiModel = askRequiredText(
-      formatWizardStep(4, "Set AI model"),
-      aiConfig.aiModel,
-    );
-  } else {
-    console.log(
-      formatWizardStep(
-        4,
-        `AI model is disabled for this run (${aiConfig.disabledReason}).`,
-      ),
+      formatWizardStep(step++, totalSteps, "Set AI model"),
+      aiModel,
     );
   }
 
-  const outFile = provider === "all"
-    ? `${OUTPUT_DIR}/issues.json`
-    : askRequiredText(
-      "Output file name",
-      seed.outFile ?? getDefaultOutFile(provider),
-    );
-
   const config: Config = {
     ...seed,
-    provider,
-    outFile,
+    provider: "all",
+    outFile: `${OUTPUT_DIR}/issues.json`,
     timeRange,
-    fetchMode,
     startDate,
     endDate,
-    reportProfile: parseReportProfile(reportProfile) ?? "activity_retro",
-    reportFormat: parseReportFormat(reportFormat) ?? FIXED_REPORT_FORMAT,
-    aiNarrative: parseAiNarrativeMode(aiNarrative) ?? FIXED_AI_NARRATIVE,
     aiModel,
   };
 
-  console.log(formatWizardStep(5, "Review provider credentials"));
+  console.log(formatWizardStep(step, totalSteps, "Review provider credentials"));
 
-  const targetProviders = provider === "all"
-    ? (["gitlab", "jira", "github"] as ProviderName[])
-    : [provider];
+  const targetProviders: ProviderName[] = ["gitlab", "jira", "github"];
 
   for (const target of targetProviders) {
     const missing = getMissingFieldsForProvider(config, target);

@@ -44,7 +44,7 @@ export class GitLabAdapter implements ProviderAdapter {
       headers,
       dateWindow.startDate,
       dateWindow.endDate,
-      config.fetchMode,
+      "all_contributions",
     );
   }
 }

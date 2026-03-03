@@ -101,10 +101,6 @@ const runFetch = async (config: Config) => {
       const report = await buildRunReport(successfulIssues, {
         startDate,
         endDate,
-        fetchMode: config.fetchMode,
-        reportProfile: config.reportProfile ?? "activity_retro",
-        reportFormat: config.reportFormat ?? "html",
-        aiNarrative: config.aiNarrative ?? "auto",
         aiModel: config.aiModel ?? "gpt-4o-mini",
         sourceMode: "fetch",
         generatedAt: new Date().toISOString(),
@@ -121,15 +117,8 @@ const runFetch = async (config: Config) => {
           runResults,
         },
       });
-      const { markdownPath, htmlPath, normalizedPath } = await writeRunReport(
-        report,
-      );
-      if (markdownPath) {
-        console.log(`\nSummary report written to ${markdownPath}`);
-      }
-      if (htmlPath) {
-        console.log(`Summary HTML report written to ${htmlPath}`);
-      }
+      const { htmlPath, normalizedPath } = await writeRunReport(report);
+      console.log(`\nSummary HTML report written to ${htmlPath}`);
       console.log(`Normalized issues written to ${normalizedPath}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -175,11 +164,10 @@ const main = async () => {
 
   const baseConfig = buildRuntimeConfig({
     envConfig,
-    interactive: Deno.stdin.isTerminal(),
   });
 
   const config = Deno.stdin.isTerminal()
-    ? await runConfigWizard(baseConfig)
+    ? runConfigWizard(baseConfig)
     : baseConfig;
 
   await runFetch(config);

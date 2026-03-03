@@ -3,7 +3,6 @@ import {
   formatProviderReadinessSummary,
   getDefaultOutFile,
   normalizeChoice,
-  resolveAiWizardConfig,
 } from "../../config/tui.ts";
 import { Config } from "../../shared/types.ts";
 
@@ -11,10 +10,6 @@ const baseConfig = (overrides: Partial<Config> = {}): Config => ({
   provider: "all",
   outFile: "output/issues.json",
   timeRange: "week",
-  fetchMode: "all_contributions",
-  reportProfile: "activity_retro",
-  reportFormat: "html",
-  aiNarrative: "auto",
   aiModel: "gpt-4o-mini",
   ...overrides,
 });
@@ -63,32 +58,4 @@ Deno.test("formatProviderReadinessSummary marks missing providers as skipping", 
     lines.some((line) => line.includes("GitHub") && line.includes("| ready")),
     true,
   );
-});
-
-Deno.test("resolveAiWizardConfig disables AI when OPENAI_API_KEY is missing", () => {
-  const decision = resolveAiWizardConfig(
-    baseConfig({
-      openaiApiKey: undefined,
-      aiModel: "gpt-4o-mini",
-    }),
-  );
-
-  assertEquals(decision.aiNarrative, "off");
-  assertEquals(decision.aiModel, "gpt-4o-mini");
-  assertEquals(decision.shouldPromptForModel, false);
-  assertEquals(decision.disabledReason, "OPENAI_API_KEY not set");
-});
-
-Deno.test("resolveAiWizardConfig prompts for model when OPENAI_API_KEY is present", () => {
-  const decision = resolveAiWizardConfig(
-    baseConfig({
-      openaiApiKey: "secret",
-      aiModel: "gpt-4o-mini",
-    }),
-  );
-
-  assertEquals(decision.aiNarrative, "auto");
-  assertEquals(decision.aiModel, "gpt-4o-mini");
-  assertEquals(decision.shouldPromptForModel, true);
-  assertEquals(decision.disabledReason, undefined);
 });

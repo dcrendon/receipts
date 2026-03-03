@@ -46,7 +46,7 @@ export class JiraAdapter implements ProviderAdapter {
       config.jiraUsername,
       dateWindow.startDate,
       dateWindow.endDate,
-      config.fetchMode,
+      "all_contributions",
     );
   }
 }
