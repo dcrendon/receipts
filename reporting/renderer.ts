@@ -5,7 +5,6 @@ import {
 } from "./normalizer.ts";
 import { NarrativeResult } from "./narrative.ts";
 import { ProviderName } from "../providers/types.ts";
-import { CommentActivity } from "../shared/types.ts";
 
 export interface RenderData {
   summary: ReportSummary;
@@ -67,43 +66,6 @@ const providerLabel: Record<ProviderName, string> = {
   gitlab: "GitLab",
   jira: "Jira",
   github: "GitHub",
-};
-
-/* ------------------------------------------------------------------ */
-/*  Activity timeline builder                                           */
-/* ------------------------------------------------------------------ */
-
-const buildTimeline = (
-  issues: NormalizedIssue[],
-): Map<string, CommentActivity[]> => {
-  const all: CommentActivity[] = [];
-
-  for (const issue of issues) {
-    for (const ts of issue.commentTimestamps) {
-      all.push({
-        issueKey: issue.key,
-        issueTitle: issue.title,
-        provider: issue.provider,
-        timestamp: ts,
-        url: issue.url,
-      });
-    }
-  }
-
-  all.sort((a, b) => {
-    const aMs = Date.parse(a.timestamp) || 0;
-    const bMs = Date.parse(b.timestamp) || 0;
-    return bMs - aMs;
-  });
-
-  const byDate = new Map<string, CommentActivity[]>();
-  for (const entry of all) {
-    const dateKey = entry.timestamp.slice(0, 10);
-    if (!byDate.has(dateKey)) byDate.set(dateKey, []);
-    byDate.get(dateKey)!.push(entry);
-  }
-
-  return byDate;
 };
 
 /* ------------------------------------------------------------------ */
@@ -242,25 +204,6 @@ body {
 .kpi-value.blocked   { color: var(--blocked); }
 .kpi-sub { font-size: 11px; color: var(--text-muted); }
 
-/* ── Timeline ─────────────────────────────────────────────────────────── */
-
-.timeline-day { margin-bottom: var(--space-lg); }
-.timeline-date { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: var(--space-sm); padding-left: var(--space-md); position: relative; }
-.timeline-date::before { content: ""; position: absolute; left: 0; top: 50%; width: 6px; height: 1px; background: var(--text-muted); }
-.timeline-entries { display: flex; flex-direction: column; gap: 2px; }
-.timeline-entry {
-  display: flex; align-items: center; gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--bg-surface); border-radius: var(--radius-sm);
-  border: 1px solid var(--border-light);
-  transition: background 0.15s ease, border-color 0.15s ease;
-  text-decoration: none; color: inherit;
-}
-.timeline-entry:hover { background: var(--bg-hover); border-color: var(--border); }
-.timeline-entry-key { font-size: 11px; color: var(--text-muted); min-width: 70px; flex-shrink: 0; }
-.timeline-entry-title { flex: 1; font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.timeline-entry-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
-
 /* ── Projects & Issue Cards ──────────────────────────────────────────── */
 
 .project-group { margin-bottom: var(--space-xl); }
@@ -384,6 +327,7 @@ const renderKpi = (data: RenderData): string => {
     { label: "Completed", value: byBucket.completed, cls: "completed" },
     { label: "Active", value: byBucket.active, cls: "active" },
     { label: "Blocked", value: byBucket.blocked, cls: "blocked" },
+    { label: "Other", value: byBucket.other, cls: "" },
   ];
 
   const mainCards = statCards
@@ -401,11 +345,8 @@ const renderKpi = (data: RenderData): string => {
     .map(
       (p) =>
         `<div class="kpi-card">
-          <div class="kpi-label"><span class="badge badge-${p.provider}">${
-          esc(providerLabel[p.provider])
-        }</span></div>
+          <div class="kpi-label">${esc(providerLabel[p.provider])}</div>
           <div class="kpi-value">${p.count}</div>
-          <div class="kpi-sub">${esc(String(p.count))} issues</div>
         </div>`,
     )
     .join("");
@@ -413,7 +354,6 @@ const renderKpi = (data: RenderData): string => {
   const contribCard = `<div class="kpi-card">
     <div class="kpi-label">My Comments</div>
     <div class="kpi-value">${contribution.totalUserComments}</div>
-    <div class="kpi-sub">${contribution.authoredIssues} authored · ${contribution.assignedIssues} assigned</div>
   </div>`;
 
   return `
@@ -422,60 +362,6 @@ const renderKpi = (data: RenderData): string => {
     <h2 class="section-title">At a Glance</h2>
   </div>
   <div class="kpi-grid">${mainCards}${providerCards}${contribCard}</div>
-</section>`;
-};
-
-const renderTimeline = (issues: NormalizedIssue[]): string => {
-  const byDate = buildTimeline(issues);
-
-  if (byDate.size === 0) {
-    return `
-<section class="section">
-  <div class="section-header">
-    <h2 class="section-title">Activity Timeline</h2>
-  </div>
-  <div class="empty-state">No comment activity recorded in this period.</div>
-</section>`;
-  }
-
-  const days = [...byDate.entries()]
-    .map(([date, entries]) => {
-      const formatted = formatDate(date + "T00:00:00Z");
-      const rows = entries
-        .map((e) => {
-          const timeStr = formatTime(e.timestamp);
-          const inner = `
-            <span class="badge badge-${e.provider}">${
-            esc(providerLabel[e.provider])
-          }</span>
-            <span class="timeline-entry-key">${esc(e.issueKey)}</span>
-            <span class="timeline-entry-title">${esc(e.issueTitle)}</span>
-            <span class="timeline-entry-time" data-localtime="${esc(e.timestamp)}" data-localtime-format="time">${esc(timeStr)}</span>`;
-          return e.url
-            ? `<a href="${
-              esc(e.url)
-            }" class="timeline-entry" target="_blank" rel="noopener">${inner}</a>`
-            : `<div class="timeline-entry">${inner}</div>`;
-        })
-        .join("");
-
-      return `
-<div class="timeline-day">
-  <div class="timeline-date">${esc(formatted)}</div>
-  <div class="timeline-entries">${rows}</div>
-</div>`;
-    })
-    .join("");
-
-  const totalEntries = [...byDate.values()].reduce((n, e) => n + e.length, 0);
-
-  return `
-<section class="section">
-  <div class="section-header">
-    <h2 class="section-title">Activity Timeline</h2>
-    <span class="section-count">${totalEntries} interactions</span>
-  </div>
-  ${days}
 </section>`;
 };
 
@@ -533,7 +419,7 @@ const renderIssuesByProject = (issues: NormalizedIssue[]): string => {
     return `
 <section class="section">
   <div class="section-header">
-    <h2 class="section-title">Issues by Project</h2>
+    <h2 class="section-title">Issue Details</h2>
   </div>
   <div class="empty-state">No issues found for this period.</div>
 </section>`;
@@ -576,7 +462,7 @@ const renderIssuesByProject = (issues: NormalizedIssue[]): string => {
   return `
 <section class="section">
   <div class="section-header">
-    <h2 class="section-title">Issues by Project</h2>
+    <h2 class="section-title">Issue Details</h2>
     <span class="section-count">${issues.length} total</span>
   </div>
   ${projectSections}
@@ -593,7 +479,7 @@ const renderFooter = (data: RenderData): string => {
 
   return `
 <footer class="footer">
-  <span class="footer-brand">gitlab-issues</span>
+  <span class="footer-brand">Receipts</span>
   <div class="footer-meta">
     <span>${coverage.connectedProviderCount}/${coverage.totalProviderCount} providers${failed}</span>
     <span>Generated <span data-localtime="${esc(context.generatedAt)}" data-localtime-format="datetime">${esc(formatDateTime(context.generatedAt))}</span></span>
@@ -624,7 +510,6 @@ export const renderHtml = (data: RenderData): string => {
     ${renderHeader(data)}
     ${renderNarrative(data.narrative)}
     ${renderKpi(data)}
-    ${renderTimeline(data.normalizedIssues)}
     ${renderIssuesByProject(data.normalizedIssues)}
     ${renderFooter(data)}
   </div>
