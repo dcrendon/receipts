@@ -35,7 +35,7 @@ const buildPrompt = (
   return `You are a work activity summarizer. Given a developer's issue activity, return ONLY valid JSON with exactly three fields:
 - "themes": array of 2-3 short theme strings (e.g. "Auth system refactor", "Bug triage")
 - "accomplishments": array of up to 6 bullet-point strings describing key achievements
-- "summary": a string of 1-2 paragraphs suitable for a standup or performance review
+- "summary": a single short paragraph (2-4 sentences max) suitable for a standup or performance review
 
 Base everything only on the provided data. Be specific — use issue titles, project names, and actual counts. Do not invent or embellish.
 
