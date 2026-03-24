@@ -327,7 +327,7 @@ const renderKpi = (data: RenderData): string => {
     { label: "Completed", value: byBucket.completed, cls: "completed" },
     { label: "Active", value: byBucket.active, cls: "active" },
     { label: "Blocked", value: byBucket.blocked, cls: "blocked" },
-    { label: "Other", value: byBucket.other, cls: "" },
+    ...(byBucket.other > 0 ? [{ label: "Other", value: byBucket.other, cls: "" }] : []),
   ];
 
   const mainCards = statCards

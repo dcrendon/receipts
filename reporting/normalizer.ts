@@ -183,7 +183,7 @@ const bucketFromState = (state: string): ActivityBucket => {
   ) return "blocked";
 
   if (
-    /(open|opened|in progress|in review|review|todo|to do|backlog|selected|working)/
+    /(open|opened|in progress|in review|in testing|review|todo|to do|backlog|selected|working)/
       .test(normalized)
   ) return "active";
 
