@@ -1,81 +1,103 @@
-# Issue Tracker Report
+# gitlab-issues
 
-A Deno CLI that fetches issues from GitLab, Jira, and GitHub and generates an
-HTML summary report.
+A Deno CLI that fetches issue activity from GitLab, Jira, and GitHub, then generates a self-contained HTML activity report powered by Google Gemini.
 
 ## What it does
 
-1. Fetches all issues you contributed to across configured providers.
-2. Normalizes issues into a common format with attribution and impact scoring.
-3. Generates a single-page HTML report with:
-   - **KPI summary** — completed, active, and blocked issue counts with provider
-     breakdown.
-   - **Full issue table** — every issue listed with title, description, status,
-     and a link back to the source system.
-4. Optionally rewrites the executive headline using OpenAI (when
-   `OPENAI_API_KEY` is set). Falls back gracefully when the key is missing.
+1. Fetches issues and comments from one or more providers over a configurable time range
+2. Normalizes them into a unified format with attribution (authored, assigned, commented)
+3. Calls the Gemini API to generate a narrative — themes, accomplishments, and a standup-ready summary
+4. Writes a self-contained HTML report and a normalized JSON file to `output/`
+
+**`GEMINI_API_KEY` is required.** The tool will not run without it.
+
+## Requirements
+
+- [Deno](https://deno.land/) v1.40+
+- A [Google AI Studio](https://aistudio.google.com/apikey) API key (`GEMINI_API_KEY`)
+- Credentials for at least one provider
 
 ## Setup
 
-```bash
-git clone git@github.com:dcrendon/gitlab-issues.git
-cd gitlab-issues
+```sh
 cp .env.example .env
+# Edit .env with your credentials
+deno run --allow-net --allow-env --allow-read --allow-write main.ts
 ```
 
-Edit `.env` with your provider credentials.
+## Configuration
 
-## Provider credentials
+All configuration is via `.env`. When run interactively in a terminal, a setup wizard will prompt for missing credentials and confirm before running.
 
-A provider runs only when **all** required fields are present:
+| Variable | Required | Description |
+|---|---|---|
+| `GEMINI_API_KEY` | Yes | Google AI Studio API key |
+| `PROVIDER` | No | `gitlab`, `jira`, `github`, or `all` (default: `all`) |
+| `TIME_RANGE` | No | `week`, `month`, `year`, or `custom` (default: `week`) |
+| `START_DATE` | When `TIME_RANGE=custom` | Start date — `MM-DD-YYYY` |
+| `END_DATE` | When `TIME_RANGE=custom` | End date — `MM-DD-YYYY` |
+| `GITLAB_PAT` | GitLab | Personal access token |
+| `GITLAB_URL` | GitLab | Instance URL (e.g. `https://gitlab.com`) |
+| `GITLAB_USERNAME` | No | Username for issue/comment attribution |
+| `JIRA_PAT` | Jira | Personal access token |
+| `JIRA_URL` | Jira | Instance URL (e.g. `https://jira.example.com`) |
+| `JIRA_USERNAME` | Jira | Username for attribution |
+| `GITHUB_PAT` | GitHub | Personal access token |
+| `GITHUB_URL` | GitHub | API URL (default: `https://api.github.com`) |
+| `GITHUB_USERNAME` | GitHub | Username for attribution |
 
-| Provider | Required fields                               |
-| -------- | --------------------------------------------- |
-| GitLab   | `GITLAB_PAT`, `GITLAB_URL`                    |
-| Jira     | `JIRA_PAT`, `JIRA_URL`, `JIRA_USERNAME`       |
-| GitHub   | `GITHUB_PAT`, `GITHUB_URL`, `GITHUB_USERNAME` |
+A provider runs only when all its required fields are present. Missing providers are skipped automatically.
 
-Missing providers are skipped. The run fails only when no selected provider is
-runnable.
+## Output
 
-## Usage
+Files are written to `output/` and named by date range and provider:
 
-```bash
-# Interactive (TTY) — launches a short config wizard
-deno run main.ts
+- `<start>_to_<end>_<providers>-summary.html` — open in any browser
+- `<start>_to_<end>_<providers>-normalized.json` — normalized issue data
 
-# Headless (non-TTY) — reads .env only
-cat /dev/null | deno run main.ts
-```
+Each run replaces the previous output files.
 
-The wizard lets you pick:
+## Report sections
 
-- Time range (week / month / year / custom)
-- AI model (only when `OPENAI_API_KEY` is set)
-
-## Outputs
-
-- `output/<provider>_issues.json` — raw fetched issues per provider.
-- `output/reports/<date-range>_<providers>-summary.html` — the HTML report.
-- `output/reports/<date-range>_<providers>-normalized.json` — normalized issues.
-
-## Exit codes
-
-| Code | Meaning                                        |
-| ---- | ---------------------------------------------- |
-| 0    | All runnable providers succeeded               |
-| 1    | No runnable providers, or all providers failed |
-| 2    | Partial success (some providers failed)        |
+1. **Header** — date range, provider badges, generated timestamp
+2. **AI Narrative** — themes, accomplishments, and standup summary from Gemini
+3. **KPI Cards** — total issues by state (completed / active / blocked) and by provider
+4. **Activity Timeline** — comment activity grouped by date, sorted newest first
+5. **Issues by Project** — cards grouped by project with state badge, labels, assignees, and description excerpt
 
 ## Development
 
-```bash
-deno task dev    # watch mode
-deno task fmt    # format
-deno task test   # run tests
+```sh
+deno task test   # run all tests
+deno task fmt    # format code
+deno task dev    # run with file watching
 ```
 
-## Security
+## Exit codes
 
-- Never commit `.env` or tokens.
-- Keep credentials in your local `.env` file.
+| Code | Meaning |
+|---|---|
+| 0 | All runnable providers succeeded |
+| 1 | No runnable providers, config error, or missing `GEMINI_API_KEY` |
+| 2 | Partial success — some providers failed |
+
+## Project structure
+
+```
+main.ts                   entry point — config guard, fetch, report
+config/
+  config.ts               env loading and config assembly
+  tui.ts                  interactive setup wizard
+  provider_readiness.ts   credential validation per provider
+providers/
+  gitlab.ts               GitLab API fetcher
+  jira.ts                 Jira API fetcher
+  github.ts               GitHub API fetcher
+reporting/
+  normalizer.ts           issue normalization, types, report summary
+  narrative.ts            Gemini API — returns themes/accomplishments/summary
+  renderer.ts             self-contained HTML template, inline CSS
+  reporting.ts            orchestrator: normalize → summarize → narrate → render
+shared/
+  types.ts                shared interfaces (Config, provider raw types)
+```

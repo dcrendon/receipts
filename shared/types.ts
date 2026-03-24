@@ -1,5 +1,7 @@
 export type UnknownRecord = Record<string, unknown>;
 
+export type ProviderName = "gitlab" | "jira" | "github";
+
 export interface Config {
   gitlabPAT?: string;
   gitlabURL?: string;
@@ -10,13 +12,20 @@ export interface Config {
   githubPAT?: string;
   githubURL?: string;
   githubUsername?: string;
-  aiModel?: string;
-  openaiApiKey?: string;
+  geminiApiKey?: string;
   outFile: string;
   timeRange: string;
   provider: "gitlab" | "jira" | "github" | "all";
   startDate?: string;
   endDate?: string;
+}
+
+export interface CommentActivity {
+  issueKey: string;
+  issueTitle: string;
+  provider: ProviderName;
+  timestamp: string;
+  url?: string;
 }
 
 interface GitlabUser {
@@ -30,6 +39,7 @@ export interface GitlabNote {
   id?: number;
   author?: GitlabUser;
   body?: string;
+  created_at?: string;
   [key: string]: unknown;
 }
 
@@ -57,6 +67,7 @@ export interface JiraComment {
   id?: string;
   author?: JiraUser;
   body?: unknown;
+  created?: string;
   [key: string]: unknown;
 }
 
@@ -93,6 +104,7 @@ export interface GitHubComment {
   id?: number;
   body?: string;
   user?: GitHubActor;
+  created_at?: string;
   [key: string]: unknown;
 }
 

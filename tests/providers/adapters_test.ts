@@ -9,7 +9,6 @@ const baseConfig = (overrides: Partial<Config> = {}): Config => {
     provider: "all",
     outFile: "issues.json",
     timeRange: "week",
-    aiModel: "gpt-4o-mini",
     gitlabPAT: "gitlab-token",
     gitlabURL: "https://gitlab.com",
     jiraPAT: "jira-token",

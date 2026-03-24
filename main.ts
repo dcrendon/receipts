@@ -101,10 +101,9 @@ const runFetch = async (config: Config) => {
       const report = await buildRunReport(successfulIssues, {
         startDate,
         endDate,
-        aiModel: config.aiModel ?? "gpt-4o-mini",
         sourceMode: "fetch",
         generatedAt: new Date().toISOString(),
-        openaiApiKey: config.openaiApiKey,
+        geminiApiKey: config.geminiApiKey!,
         usernames: {
           gitlab: config.gitlabUsername,
           jira: config.jiraUsername,
@@ -169,6 +168,13 @@ const main = async () => {
   const config = Deno.stdin.isTerminal()
     ? runConfigWizard(baseConfig)
     : baseConfig;
+
+  if (!config.geminiApiKey) {
+    promptExit(
+      "GEMINI_API_KEY is required. Set it in your .env file.",
+      1,
+    );
+  }
 
   await runFetch(config);
 };

@@ -10,7 +10,6 @@ import { ProviderName } from "../providers/types.ts";
 
 const TIME_RANGES = ["week", "month", "year", "custom"] as const;
 const OUTPUT_DIR = "output";
-const DEFAULT_AI_MODEL = "gpt-4o-mini";
 
 const isNonEmpty = (value: string | null): value is string =>
   Boolean(value && value.trim().length > 0);
@@ -87,7 +86,7 @@ const askRequiredSecret = (question: string, defaultValue?: string): string => {
   }
 };
 
-const getWizardTotalSteps = (hasApiKey: boolean): number => hasApiKey ? 3 : 2;
+const getWizardTotalSteps = (): number => 2;
 
 const formatWizardStep = (
   step: number,
@@ -192,8 +191,7 @@ export const runConfigWizard = (
     "Configure this run. Missing provider credentials can be added now.",
   );
 
-  const hasApiKey = Boolean(seed.openaiApiKey);
-  const totalSteps = getWizardTotalSteps(hasApiKey);
+  const totalSteps = getWizardTotalSteps();
   let step = 1;
 
   const timeRange = askChoice(
@@ -215,14 +213,6 @@ export const runConfigWizard = (
     );
   }
 
-  let aiModel = seed.aiModel ?? DEFAULT_AI_MODEL;
-  if (hasApiKey) {
-    aiModel = askRequiredText(
-      formatWizardStep(step++, totalSteps, "Set AI model"),
-      aiModel,
-    );
-  }
-
   const config: Config = {
     ...seed,
     provider: "all",
@@ -230,7 +220,6 @@ export const runConfigWizard = (
     timeRange,
     startDate,
     endDate,
-    aiModel,
   };
 
   console.log(

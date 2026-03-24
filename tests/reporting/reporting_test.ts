@@ -89,9 +89,10 @@ Deno.test("buildReportSummary aggregates buckets and contribution counters", () 
       isAssignedToUser: false,
       isCommentedByUser: false,
       userCommentCount: 0,
-      impactScore: 20,
+      commentTimestamps: [],
       description: "",
       descriptionSnippet: "",
+      project: "gitlab",
     },
     {
       id: "b",
@@ -111,9 +112,10 @@ Deno.test("buildReportSummary aggregates buckets and contribution counters", () 
       isAssignedToUser: true,
       isCommentedByUser: true,
       userCommentCount: 2,
-      impactScore: 65,
+      commentTimestamps: [],
       description: "",
       descriptionSnippet: "",
+      project: "org/repo",
     },
   ]);
 
@@ -124,5 +126,4 @@ Deno.test("buildReportSummary aggregates buckets and contribution counters", () 
   assertEquals(summary.byBucket.completed, 1);
   assertEquals(summary.contribution.contributedIssues, 2);
   assertEquals(summary.contribution.totalUserComments, 2);
-  assertEquals(summary.highPriorityLabelIssues, 1);
 });

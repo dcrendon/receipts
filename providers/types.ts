@@ -1,6 +1,6 @@
 import { Config } from "../shared/types.ts";
 
-export type ProviderName = "gitlab" | "jira" | "github";
+export type { ProviderName } from "../shared/types.ts";
 
 export interface DateWindow {
   startDate: string;
@@ -8,7 +8,7 @@ export interface DateWindow {
 }
 
 export interface ProviderAdapter {
-  name: ProviderName;
+  name: import("../shared/types.ts").ProviderName;
   canRun(config: Config): boolean;
   getOutFile(config: Config): string;
   fetchIssues(config: Config, dateWindow: DateWindow): Promise<unknown[]>;
