@@ -9,7 +9,7 @@ import {
   getProviderReadiness,
   providerLabel as readinessProviderLabel,
 } from "./config/provider_readiness.ts";
-import { runConfigWizard } from "./config/tui.ts";
+import { runSetup } from "./config/tui.ts";
 import {
   evaluateRunStatus,
   EXIT_CODES,
@@ -150,12 +150,6 @@ const runFetch = async (config: Config) => {
 };
 
 const main = async () => {
-  if (Deno.args.length > 0) {
-    console.log(
-      "Ignoring CLI args. This app now uses .env + TUI only.",
-    );
-  }
-
   let envConfig: Partial<Config> = {};
   try {
     envConfig = await loadEnvConfig();
@@ -169,7 +163,7 @@ const main = async () => {
   });
 
   const config = Deno.stdin.isTerminal()
-    ? runConfigWizard(baseConfig)
+    ? runSetup(baseConfig)
     : baseConfig;
 
   if (!config.geminiApiKey) {

@@ -9,6 +9,7 @@ import {
 import { ProviderName } from "../providers/types.ts";
 
 const TIME_RANGES = ["week", "month", "year", "custom"] as const;
+const PROVIDERS = ["gitlab", "jira", "github", "all"] as const;
 const OUTPUT_DIR = "output";
 
 const isNonEmpty = (value: string | null): value is string =>
@@ -86,9 +87,7 @@ const askRequiredSecret = (question: string, defaultValue?: string): string => {
   }
 };
 
-const getWizardTotalSteps = (): number => 2;
-
-const formatWizardStep = (
+const formatStep = (
   step: number,
   totalSteps: number,
   label: string,
@@ -183,19 +182,20 @@ const captureProviderCredentials = (
   }
 };
 
-export const runConfigWizard = (
+export const runSetup = (
   seed: Config,
 ): Config => {
-  console.log("\nIssue Fetcher Wizard");
-  console.log(
-    "Configure this run. Missing provider credentials can be added now.",
-  );
-
-  const totalSteps = getWizardTotalSteps();
+  const totalSteps = 3;
   let step = 1;
 
+  const provider = askChoice(
+    formatStep(step++, totalSteps, "Select provider"),
+    PROVIDERS,
+    normalizeChoice(seed.provider, PROVIDERS) ?? "all",
+  );
+
   const timeRange = askChoice(
-    formatWizardStep(step++, totalSteps, "Select time range"),
+    formatStep(step++, totalSteps, "Select time range"),
     TIME_RANGES,
     normalizeChoice(seed.timeRange, TIME_RANGES) ?? "week",
   );
@@ -215,32 +215,39 @@ export const runConfigWizard = (
 
   const config: Config = {
     ...seed,
-    provider: "all",
-    outFile: `${OUTPUT_DIR}/issues.json`,
+    provider,
+    outFile: getDefaultOutFile(provider),
     timeRange,
     startDate,
     endDate,
   };
 
-  console.log(
-    formatWizardStep(step, totalSteps, "Review provider credentials"),
+  const { selectedProviders } = getProviderReadiness(config);
+  const needsCredentials = selectedProviders.some(
+    (p) => getMissingFieldsForProvider(config, p).length > 0,
   );
 
-  const targetProviders: ProviderName[] = ["gitlab", "jira", "github"];
+  if (needsCredentials) {
+    console.log(formatStep(step, totalSteps, "Review provider credentials"));
 
-  for (const target of targetProviders) {
-    const missing = getMissingFieldsForProvider(config, target);
-    if (!missing.length) continue;
+    for (const target of selectedProviders) {
+      const missing = getMissingFieldsForProvider(config, target);
+      if (!missing.length) continue;
 
-    const shouldCapture = askBoolean(
-      `${providerLabel(target)} is missing ${
-        formatMissingFields(missing)
-      }. Add now?`,
-      true,
-    );
-    if (shouldCapture) {
-      captureProviderCredentials(config, target);
+      const shouldCapture = askBoolean(
+        `${providerLabel(target)} is missing ${
+          formatMissingFields(missing)
+        }. Add now?`,
+        true,
+      );
+      if (shouldCapture) {
+        captureProviderCredentials(config, target);
+      }
     }
+  } else {
+    console.log(
+      formatStep(step, totalSteps, "Provider credentials — all set"),
+    );
   }
 
   console.log("");
