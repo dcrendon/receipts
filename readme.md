@@ -1,111 +1,103 @@
-# GitLab & Jira Issue Fetcher
+# Receipts
 
-A Deno CLI tool to fetch and export GitLab and Jira issues you've worked on. It
-scans issues and generates a JSON report of issues where you are the author,
-assignee, or a participant.
+A Deno CLI that aggregates your issue activity across GitLab, Jira, and GitHub, then generates a self-contained HTML report with an AI narrative — so your standup actually reflects everything you shipped.
 
-## Features
+## What it does
 
-- **Multi-Provider**: Supports both GitLab and Jira.
-- **Auto-Discovery**: Automatically finds your contributions.
-- **Flexible Config**: Use a `.env` file, command-line flags, or interactive
-  prompts.
-- **Smart Filtering**:
-  - `my_issues`: Only issues you created or are assigned to.
-  - `all_contributions`: Includes issues where you commented/participated, even
-    if not assigned.
+1. Fetches issues and comments from one or more providers over a configurable time range
+2. Normalizes them into a unified format with attribution (authored, assigned, commented)
+3. Calls the Gemini API to generate a narrative — themes, accomplishments, and a standup-ready summary
+4. Writes a self-contained HTML report and a normalized JSON file to `output/`
 
-## Quick Start (Windows App)
+**`GEMINI_API_KEY` is required.** The tool will not run without it.
 
-If prefered you can run the app directly with the pre-compiled executable
+## Requirements
 
-1. **Download** the latest `issue-fetcher.exe` from the **Releases** section.
-2. **Generate a PAT** for your provider (GitLab or Jira).
-3. See [CLI Flags](#cli-flags) section for the full list of options
-4. **Double-click** the `.exe` file to run it.
-5. **Follow the prompts** on the screen. It will ask for your Provider, URL and
-   Token if you haven't set them up beforehand.
-6. Once it finishes, look for a new file named `gitlab_issues.json` or
-   `jira_issues.json` right next to the app.
-
-## Prerequisites
-
-- [Deno](https://deno.com/)
-- A Personal Access Token (PAT) for GitLab or Jira.
+- [Deno](https://deno.land/) v1.40+
+- A [Google AI Studio](https://aistudio.google.com/apikey) API key (`GEMINI_API_KEY`)
+- Credentials for at least one provider
 
 ## Setup
 
-1. **Clone the repository:**
-   ```bash
-   git clone git@github.com:dcrendon/gitlab-issues.git
-   cd gitlab-issues
-   ```
-
-2. **Environment Variables (Optional):** You can create a `.env` file in the
-   root directory to save your credentials.
-   ```env
-   # Common
-   PROVIDER=gitlab # or jira
-   OUT_FILE=issues.json
-   TIME_RANGE=week
-   FETCH_MODE=all_contributions
-
-   # GitLab
-   GITLAB_PAT=your_gitlab_token
-   GITLAB_URL=https://gitlab.com
-
-   # Jira
-   JIRA_PAT=your_jira_token
-   JIRA_URL=https://jira.example.com
-   JIRA_USERNAME=your_username
-   ```
-
-## Usage
-
-You can run the tool directly in the CLI:
-
-```bash
-deno run main.ts
+```sh
+cp .env.example .env
+# Edit .env with your credentials
+deno run --allow-net --allow-env --allow-read --allow-write main.ts
 ```
 
-If you haven't set up a `.env` file or provided flags, the tool will
-interactively ask for your details.
+## Configuration
 
-### CLI Flags
+All configuration is via `.env`. When run interactively in a terminal, a setup wizard will prompt for missing credentials and confirm before running.
 
-You can override defaults or environment variables using flags:
+| Variable | Required | Description |
+|---|---|---|
+| `GEMINI_API_KEY` | Yes | Google AI Studio API key |
+| `PROVIDER` | No | `gitlab`, `jira`, `github`, or `all` (default: `all`) |
+| `TIME_RANGE` | No | `week`, `month`, `year`, or `custom` (default: `week`) |
+| `START_DATE` | When `TIME_RANGE=custom` | Start date — `MM-DD-YYYY` |
+| `END_DATE` | When `TIME_RANGE=custom` | End date — `MM-DD-YYYY` |
+| `GITLAB_PAT` | GitLab | Personal access token |
+| `GITLAB_URL` | GitLab | Instance URL (e.g. `https://gitlab.com`) |
+| `GITLAB_USERNAME` | No | Username for issue/comment attribution |
+| `JIRA_PAT` | Jira | Personal access token |
+| `JIRA_URL` | Jira | Instance URL (e.g. `https://jira.example.com`) |
+| `JIRA_USERNAME` | Jira | Username for attribution |
+| `GITHUB_PAT` | GitHub | Personal access token |
+| `GITHUB_URL` | GitHub | API URL (default: `https://api.github.com`) |
+| `GITHUB_USERNAME` | GitHub | Username for attribution |
 
-| Flag             | Alias     | Description                                              | Default                |
-| :--------------- | :-------- | :------------------------------------------------------- | :--------------------- |
-| `--provider`     |           | Provider to use (`gitlab`, `jira`, `all`)                | `gitlab`               |
-| `--gitlabPAT`    | `--pat`   | Your GitLab Personal Access Token                        | _Interactive_          |
-| `--gitlabURL`    | `--url`   | GitLab instance URL                                      | _Interactive_          |
-| `--jiraPAT`      |           | Your Jira Personal Access Token                          | _Interactive_          |
-| `--jiraURL`      |           | Jira instance URL                                        | _Interactive_          |
-| `--jiraUsername` |           | Jira Username (for JQL queries)                          | _Interactive_          |
-| `--outFile`      | `--out`   | Filename for the JSON output                             | `gitlab_issues.json`*  |
-| `--timeRange`    | `--range` | Time period to scan (`week`, `month`, `year`, `custom`)  | `week`                 |
-| `--startDate`    | `--start` | Custom start date (`MM-DD-YYYY`) - Required for `custom` | N/A                    |
-| `--endDate`      | `--end`   | Custom end date (`MM-DD-YYYY`) - Required for `custom`   | N/A                    |
-| `--fetchMode`    | `--mode`  | Scan logic (`my_issues`, `all_contributions`)            | `all_contributions`    |
-| `--help`         | `-h`      | Show help message                                        | N/A                    |
-
-\* Default output filename depends on the provider: `gitlab_issues.json` for `gitlab`, `jira_issues.json` for `jira`. When `--provider all` is used, the tool writes both `gitlab_issues.json` and `jira_issues.json`.
-
-**Example:**
-
-```bash
-# GitLab
-deno run main.ts --range month --mode my_issues --out monthly_report.json
-
-# Jira
-deno run main.ts --provider jira --jiraURL https://my.jira.com --jiraUsername myuser --range week
-
-# Both
-deno run main.ts --provider all --range week
-```
+A provider runs only when all its required fields are present. Missing providers are skipped automatically.
 
 ## Output
 
-The script generates a JSON file containing the raw issue data from the
-provider.
+Files are written to `output/` and named by date range and provider:
+
+- `<start>_to_<end>_<providers>-summary.html` — open in any browser
+- `<start>_to_<end>_<providers>-normalized.json` — normalized issue data
+
+Each run replaces the previous output files.
+
+## Report sections
+
+1. **Header** — date range, provider badges, generated timestamp
+2. **AI Narrative** — themes, accomplishments, and standup summary from Gemini
+3. **KPI Cards** — total issues by state (completed / active / blocked) and by provider
+4. **Activity Timeline** — comment activity grouped by date, sorted newest first
+5. **Issues by Project** — cards grouped by project with state badge, labels, assignees, and description excerpt
+
+## Development
+
+```sh
+deno task test   # run all tests
+deno task fmt    # format code
+deno task dev    # run with file watching
+```
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | All runnable providers succeeded |
+| 1 | No runnable providers, config error, or missing `GEMINI_API_KEY` |
+| 2 | Partial success — some providers failed |
+
+## Project structure
+
+```
+main.ts                   entry point — config guard, fetch, report
+config/
+  config.ts               env loading and config assembly
+  tui.ts                  interactive setup wizard
+  provider_readiness.ts   credential validation per provider
+providers/
+  gitlab.ts               GitLab API fetcher
+  jira.ts                 Jira API fetcher
+  github.ts               GitHub API fetcher
+reporting/
+  normalizer.ts           issue normalization, types, report summary
+  narrative.ts            Gemini API — returns themes/accomplishments/summary
+  renderer.ts             self-contained HTML template, inline CSS
+  reporting.ts            orchestrator: normalize → summarize → narrate → render
+shared/
+  types.ts                shared interfaces (Config, provider raw types)
+```

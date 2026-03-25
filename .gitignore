@@ -1,5 +1,24 @@
+# Environment files
 .env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+
+# Claude Code local config
+.claude/
+
+# Generated outputs
+output/
+reports/
+fixtures/
 gitlab_issues.json
 jira_issues.json
+github_issues.json
 gitlab-issues.exe
 *.png
+
+# Dependencies / build artifacts
+node_modules/
+reporting/shadcn-renderer/dist/
