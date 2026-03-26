@@ -3,7 +3,8 @@
     "dev": "deno run --watch main.ts",
     "fmt": "deno fmt",
     "test": "deno test --allow-read --allow-env tests/",
-    "start": "deno run --allow-net --allow-env --allow-read --allow-write main.ts"
+    "start": "deno run --allow-net --allow-env --allow-read --allow-write main.ts",
+    "unsafe": "deno run --allow-net --allow-env --allow-read --allow-write --unsafely-ignore-certificate-errors main.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1",
